@@ -1,15 +1,18 @@
 import sys
 import os
 import re
+import threading
 from io import BytesIO
 from datetime import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QSlider, QFileDialog, QLabel, QListWidget, QComboBox,
-                             QMessageBox, QSplitter)
-from PyQt6.QtCore import Qt, QTimer, QUrl
+                             QMessageBox, QSplitter, QLineEdit, QProgressBar)
+from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtGui import QImage, QPixmap, QPainter, QColor, QFont
 from PIL import Image
+
+
 
 # 导入VLC
 try:
@@ -266,6 +269,7 @@ class MediaPlayer(QMainWindow):
         # 绑定网络串流事件
         self.btn_stream.clicked.connect(self.play_stream)
 
+        # ========== 媒体信息区域 ==========
         title = QLabel("媒体信息")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         right_layout.addWidget(title)
@@ -868,6 +872,55 @@ class MediaPlayer(QMainWindow):
         if not self.is_streaming and self.loop_single and total_ms > 0 and cur_ms >= total_ms - 100:
             self.media_player.set_time(0)
             self.media_player.play()
+
+    def play_downloaded_media(self, local_path):
+        """播放下载的媒体文件"""
+        if not os.path.exists(local_path):
+            QMessageBox.warning(self, "播放失败", "文件不存在！")
+            return
+
+        # 使用现有的open_media方法播放
+        self.open_media_from_path(local_path)
+
+    def open_media_from_path(self, path):
+        """从路径打开媒体文件（简化版）"""
+        self.cur_media_path = path
+        self.is_streaming = False
+        self.is_video = path.lower().endswith(('.mp4', '.mkv', '.avi', '.mov'))
+        self.lrc_list.clear()
+        self.lrc_list.hide()
+        
+        self.slider_pos.setEnabled(True)
+        self.slider_pos.setStyleSheet("")
+
+        self.read_audio_metadata(path)
+
+        if self.is_video:
+            self.bind_video_window()
+            self.video_label.clear()
+        else:
+            self.load_audio_cover(path)
+
+        media = self.vlc_instance.media_new(path)
+        self.media_player.set_media(media)
+        self.media_player.play()
+        self.media_player.set_rate(self.cur_speed)
+
+        self.show_media_info(path)
+
+        # 尝试加载同目录LRC
+        if not self.is_video:
+            media_dir = os.path.dirname(path)
+            media_name = os.path.splitext(os.path.basename(path))[0]
+            lrc_path = os.path.join(media_dir, f"{media_name}.lrc")
+            if os.path.exists(lrc_path):
+                try:
+                    with open(lrc_path, "r", encoding="utf-8") as f:
+                        self.parse_lrc(f.read())
+                    self.lrc_list.addItems(self.lrc_lines)
+                    self.lrc_list.setVisible(True)
+                except Exception:
+                    pass
 
 if HAS_WIN32:
     class PowerEventWindow:
