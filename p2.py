@@ -313,7 +313,7 @@ class MediaPlayer(QMainWindow):
         QDesktopServices.openUrl(QUrl("https://www.gnu.org/licenses/gpl-3.0"))
 
     def open_qrstudio_link(self, event):
-        QDesktopServices.openUrl(QUrl("about:blank"))  # 替换为实际链接
+        QDesktopServices.openUrl(QUrl("https://github.com/liqirui1145-create/player"))  # 替换为实际链接
 
     # ====================== 自动加载项目目录中的默认封面 ======================
     def load_default_cover_from_file(self):
