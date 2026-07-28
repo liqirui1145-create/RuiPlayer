@@ -1,135 +1,146 @@
-import sys
 import os
+import sys
 import re
-import threading
-from io import BytesIO
+import json
 from datetime import datetime
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QSlider, QFileDialog, QLabel, QListWidget, QComboBox,
-                             QMessageBox, QSplitter, QLineEdit, QProgressBar)
-from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtGui import QImage, QPixmap, QPainter, QColor, QFont
+from io import BytesIO
+from pathlib import Path
+from urllib.parse import urljoin
+
+from PyQt6.QtCore import QEvent, Qt, QTimer, QUrl
+from PyQt6.QtGui import QColor, QDesktopServices, QFont, QImage, QPainter, QPixmap
+from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
+from PyQt6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QMainWindow,
+    QPushButton,
+    QSlider,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
 from PIL import Image
 
-
-
-# 导入VLC
 try:
     import vlc
-except:
+except Exception:
     print("错误：请安装 VLC 播放器，执行 pip install python-vlc")
-    sys.exit()
+    sys.exit(1)
 
-# 导入音频元数据读取库
 try:
     from mutagen import File as MutagenFile
-    from mutagen.mp3 import MP3
     from mutagen.flac import FLAC
-    from mutagen.wave import WAVE
-except:
-    print("提示：未安装mutagen库，媒体信息不完整。执行 pip install mutagen")
+    from mutagen.mp3 import MP3
+except Exception:
     MutagenFile = None
+    MP3 = FLAC = None
 
-# Windows电源事件监听（用于检测休眠/睡眠/合上盖子）
-try:
-    import win32api
-    import win32con
-    import win32gui
-    HAS_WIN32 = True
-except ImportError:
-    print("提示：未安装pywin32，休眠检测功能不可用。执行 pip install pywin32")
-    HAS_WIN32 = False
 
 class MediaPlayer(QMainWindow):
-    # 默认封面文件名
     DEFAULT_COVER_FILENAME = "Xinjiang_Old_and_young_(Populus_diversifolia_胡杨)_(4973519309).jpg"
-    
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("多媒体播放器")
         self.resize(1024, 600)
-        # 设置窗口状态为最大化
         self.setWindowState(Qt.WindowState.WindowMaximized)
 
-        # VLC 播放器初始化（支持网络串流）
-        self.vlc_instance = vlc.Instance(
+        vlc_args = [
             "--quiet",
-            "--aout=waveout",
             "--network-caching=10000",
             "--live-caching=10000",
-            "--rtsp-tcp",
             "--http-reconnect",
-            "--no-video-title-show"
-        )
+            "--no-video-title-show",
+        ]
+        import platform
+
+        if platform.system() == "Windows":
+            vlc_args.append("--aout=waveout")
+        # Linux 下不强制指定音频输出，让 VLC 自动选择
+        # （避免系统缺少 PulseAudio 时音频输出阻塞导致 UI 卡顿）
+
+        self.vlc_instance = vlc.Instance(*vlc_args)
         self.media_player = self.vlc_instance.media_player_new()
 
-        # 全局播放状态
         self.cur_media_path = ""
         self.is_video = False
-        self.is_streaming = False  # 是否正在播放网络串流
+        self.is_streaming = False
         self.lrc_lines = []
         self.lrc_time_list = []
         self.cur_lrc_idx = -1
         self.cur_speed = 1.0
         self.loop_single = False
 
-        # 音频元数据缓存
+        self.equalizer_enabled = True
+        self.equalizer_bands = [0.0] * 10
+        self.equalizer_preamp = 0.0
+        self.equalizer_dialog = None
+
+        self.ui_scale = load_ui_scale()
+        self.scale_dialog = None
+
+        self.network_manager = QNetworkAccessManager(self)
+        self.channel_dialog = None
+
         self.audio_metadata = {
-            "sample_rate": "--", "channels": "--", "artist": "--",
-            "album": "--", "title": "--", "bitrate": "--"
+            "sample_rate": "--",
+            "channels": "--",
+            "artist": "--",
+            "album": "--",
+            "title": "--",
+            "bitrate": "--",
         }
 
-        # 【新增】用户自定义默认封面（全局）
         self.custom_default_cover = None
-        # 自动加载项目目录中的默认封面图片
         self.load_default_cover_from_file()
 
-        # 键盘快捷键相关变量
         self.space_pressed = False
         self.is_space_long = False
         self.original_speed = 1.0
-        self.space_timer = QTimer()
+        self.space_timer = QTimer(self)
         self.space_timer.setSingleShot(True)
         self.space_timer.setInterval(200)
         self.space_timer.timeout.connect(self.on_space_long_press)
 
         self.init_ui()
-
-        # 【新增】为所有子控件安装事件过滤器，实现全局快捷键
+        self.adapt_layout_to_screen()
         self.install_global_shortcuts()
 
-        # 【新增】休眠/睡眠检测功能
-        self.was_playing_before_sleep = False
-        self.setup_power_event_listener()
-
-        # 全局刷新定时器（进度、歌词同步）
-        self.timer = QTimer(interval=50)
+        self.timer = QTimer(self)
+        self.timer.setInterval(50)
         self.timer.timeout.connect(self.update_progress_and_lrc)
         self.timer.start()
-    
-    def setup_power_event_listener(self):
-        """设置Windows电源事件监听（检测休眠/睡眠/合上盖子）"""
-        if HAS_WIN32:
-            # 注册电源事件回调
-            self.power_event_window = PowerEventWindow(self)
-    
-    def on_system_suspend(self):
-        """系统即将进入休眠/睡眠状态"""
-        if self.media_player.is_playing():
-            self.was_playing_before_sleep = True
-            self.media_player.pause()
-            print("系统即将休眠，已暂停播放")
-    
-    def on_system_resume(self):
-        """系统从休眠/睡眠状态恢复"""
-        if self.was_playing_before_sleep:
-            self.media_player.play()
-            self.was_playing_before_sleep = False
-            print("系统已恢复，继续播放")
-    
+
+        # 网络串流使用低频定时器，避免每 50ms 高频调用 libvlc 导致 UI 抽帧/无响应
+        self.stream_timer = QTimer(self)
+        self.stream_timer.setInterval(1000)
+        self.stream_timer.timeout.connect(self.update_stream_status)
+
+    def _set_stream_mode(self, streaming):
+        """切换轮询模式：网络串流用低频定时器，本地媒体用高频定时器"""
+        if streaming:
+            self.timer.stop()
+            if not self.stream_timer.isActive():
+                self.stream_timer.start()
+        else:
+            self.stream_timer.stop()
+            if not self.timer.isActive():
+                self.timer.start()
+
+    def on_space_long_press(self):
+        self.is_space_long = True
+
     def install_global_shortcuts(self):
-        """为所有子控件安装事件过滤器，实现窗口内全局快捷键"""
         self.video_label.installEventFilter(self)
         self.lrc_list.installEventFilter(self)
         self.info_panel.installEventFilter(self)
@@ -144,49 +155,107 @@ class MediaPlayer(QMainWindow):
         self.btn_loop.installEventFilter(self)
         self.btn_open_folder.installEventFilter(self)
         self.btn_set_cover.installEventFilter(self)
-    
+
     def eventFilter(self, obj, event):
-        """事件过滤器：拦截所有子控件的键盘事件，实现全局快捷键"""
-        if event.type() == event.Type.KeyPress:
+        if event.type() == QEvent.Type.KeyPress:
             return self.handle_global_key_press(event)
-        elif event.type() == event.Type.KeyRelease:
+        if event.type() == QEvent.Type.KeyRelease:
             return self.handle_global_key_release(event)
         return super().eventFilter(obj, event)
 
-    def on_space_long_press(self):
-        """空格长按判定"""
-        self.is_space_long = True
+    def handle_global_key_press(self, event):
+        if event.isAutoRepeat():
+            return False
+        key = event.key()
+        handled = True
+
+        if self.is_streaming:
+            if key == Qt.Key.Key_Up:
+                vol = self.media_player.audio_get_volume()
+                self.media_player.audio_set_volume(min(vol + 5, 100))
+                self.slider_vol.setValue(self.media_player.audio_get_volume())
+            elif key == Qt.Key.Key_Down:
+                vol = self.media_player.audio_get_volume()
+                self.media_player.audio_set_volume(max(vol - 5, 0))
+                self.slider_vol.setValue(self.media_player.audio_get_volume())
+            else:
+                handled = False
+            return handled
+
+        if key == Qt.Key.Key_Space:
+            self.space_pressed = True
+            self.is_space_long = False
+            self.original_speed = self.cur_speed
+            self.cur_speed = 2.0
+            self.set_play_speed(str(self.cur_speed))
+            self.space_timer.start()
+        elif key == Qt.Key.Key_Left:
+            current_ms = self.media_player.get_time()
+            self.media_player.set_time(max(current_ms - 10000, 0))
+        elif key == Qt.Key.Key_Right:
+            current_ms = self.media_player.get_time()
+            total_ms = self.media_player.get_length()
+            self.media_player.set_time(min(current_ms + 10000, total_ms))
+        elif key == Qt.Key.Key_Up:
+            vol = self.media_player.audio_get_volume()
+            self.media_player.audio_set_volume(min(vol + 5, 100))
+            self.slider_vol.setValue(self.media_player.audio_get_volume())
+        elif key == Qt.Key.Key_Down:
+            vol = self.media_player.audio_get_volume()
+            self.media_player.audio_set_volume(max(vol - 5, 0))
+            self.slider_vol.setValue(self.media_player.audio_get_volume())
+        elif key == Qt.Key.Key_Delete:
+            self.delete_current_media()
+        else:
+            handled = False
+        return handled
+
+    def handle_global_key_release(self, event):
+        key = event.key()
+        if self.is_streaming:
+            return False
+        if key == Qt.Key.Key_Space and self.space_pressed:
+            self.space_pressed = False
+            self.space_timer.stop()
+            if not self.is_space_long:
+                self.play_pause()
+            self.cur_speed = self.original_speed
+            self.set_play_speed(str(self.cur_speed))
+            return True
+        return False
+
+    def keyPressEvent(self, event):
+        if not self.handle_global_key_press(event):
+            super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event):
+        if not self.handle_global_key_release(event):
+            super().keyReleaseEvent(event)
 
     def init_ui(self):
-        # 使用 QSplitter 实现可拖拽调节宽度
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter = self.splitter
         self.setCentralWidget(splitter)
         splitter.setContentsMargins(20, 20, 20, 20)
         splitter.setHandleWidth(8)
 
-        # ========== 左侧播放区域 ==========
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.setSpacing(15)
 
-        # 播放画面/封面显示标签（已删除频谱堆叠组件）
-        self.video_label = QLabel()
+        self.video_label = QLabel("请打开媒体文件")
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_label.setMinimumSize(320, 320)
-        self.video_label.setText("请打开媒体文件")
         left_layout.addWidget(self.video_label)
 
-        # 歌词栏（默认隐藏）
         self.lrc_list = QListWidget()
         self.lrc_list.setFixedHeight(110)
         self.lrc_list.setVisible(False)
         left_layout.addWidget(self.lrc_list)
 
-        # 控制区域
         control_layout = QVBoxLayout()
         control_layout.setSpacing(8)
 
-        # 第一行：功能按钮 + 倍速选择
         row1 = QHBoxLayout()
         row1.setSpacing(8)
         self.btn_open = QPushButton("打开音视频")
@@ -196,14 +265,12 @@ class MediaPlayer(QMainWindow):
         self.btn_stop = QPushButton("停止")
         self.btn_loop = QPushButton("单曲循环")
         self.btn_open_folder = QPushButton("打开文件夹")
-        # 设置默认封面按钮
         self.btn_set_cover = QPushButton("设置默认封面")
 
         self.cbx_speed = QComboBox()
         self.cbx_speed.addItems(["0.5x", "0.7x", "1.0x", "1.2x", "1.5x", "2.0x"])
         self.cbx_speed.setCurrentText("1.0x")
 
-        # 依次添加按钮
         row1.addWidget(self.btn_open)
         row1.addWidget(self.btn_lyric)
         row1.addWidget(self.btn_sub)
@@ -216,7 +283,6 @@ class MediaPlayer(QMainWindow):
         row1.addWidget(self.cbx_speed)
         row1.addStretch()
 
-        # 第二行：进度条 + 音量条（已删除频谱单选框）
         row2 = QHBoxLayout()
         row2.setSpacing(10)
         row2.addWidget(QLabel("进度"))
@@ -228,7 +294,6 @@ class MediaPlayer(QMainWindow):
         self.slider_vol.setValue(80)
         row2.addWidget(self.slider_vol, stretch=1)
 
-        # 绑定所有控件事件
         self.btn_open.clicked.connect(self.open_media)
         self.btn_lyric.clicked.connect(self.load_lrc_file)
         self.btn_sub.clicked.connect(self.load_subtitle)
@@ -245,55 +310,67 @@ class MediaPlayer(QMainWindow):
         control_layout.addLayout(row2)
         left_layout.addLayout(control_layout)
 
-        # ========== 右侧媒体信息面板（可拖拽宽度） ==========
-        right_widget = QWidget()
-        right_widget.setMinimumWidth(150)  # 设置最小宽度阈值
+        self.right_widget = QWidget()
+        right_widget = self.right_widget
         right_layout = QVBoxLayout(right_widget)
         right_layout.setSpacing(10)
 
-        # 网络串流功能
         stream_layout = QHBoxLayout()
         stream_layout.setSpacing(5)
-        self.stream_url_edit = QLabel()
-        self.stream_url_edit.setText("网络串流 URL:")
+        stream_label = QLabel("网络串流 URL:")
         self.stream_url_input = QComboBox()
         self.stream_url_input.setEditable(True)
         self.stream_url_input.addItems(["https://example.com/stream", "rtsp://example.com/camera"])
         self.stream_url_input.setPlaceholderText("请输入网络串流地址")
         self.btn_stream = QPushButton("播放串流")
-        stream_layout.addWidget(self.stream_url_edit)
+        stream_layout.addWidget(stream_label)
         stream_layout.addWidget(self.stream_url_input)
         stream_layout.addWidget(self.btn_stream)
         right_layout.addLayout(stream_layout)
-
-        # 绑定网络串流事件
         self.btn_stream.clicked.connect(self.play_stream)
 
-        # ========== 媒体信息区域 ==========
+        self.btn_m3u = QPushButton("上传M3U/M3U8文件")
+        self.btn_m3u.setToolTip("选择本地M3U/M3U8播放列表，列出电视台点台播放")
+        self.btn_m3u.clicked.connect(self.load_m3u_file)
+        right_layout.addWidget(self.btn_m3u)
+
+        self.btn_equalizer = QPushButton("均衡器")
+        self.btn_equalizer.setToolTip("点击打开均衡器窗口")
+        self.btn_equalizer.clicked.connect(self.open_equalizer_dialog)
+
+        self.btn_scale = QPushButton("缩放")
+        self.btn_scale.setToolTip("点击设置界面缩放比例")
+        self.btn_scale.clicked.connect(self.open_scale_dialog)
+
+        eq_scale_row = QHBoxLayout()
+        eq_scale_row.setSpacing(6)
+        eq_scale_row.addWidget(self.btn_equalizer)
+        eq_scale_row.addWidget(self.btn_scale)
+        right_layout.addLayout(eq_scale_row)
+
         title = QLabel("媒体信息")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         right_layout.addWidget(title)
         self.info_panel = QListWidget()
         right_layout.addWidget(self.info_panel)
 
+        # 右下角：工作室徽标 + GPLv3 徽标
         gpl_layout = QHBoxLayout()
         gpl_layout.addStretch()
-        
-        # 添加 qrstudio-icon（缩放为136x68）
+
         self.qrstudio_label = QLabel()
         qrstudio_icon_path = os.path.join(os.path.dirname(__file__), "qrstudio-icon.png")
         if os.path.exists(qrstudio_icon_path):
             pixmap = QPixmap(qrstudio_icon_path).scaled(
                 136, 68,
                 Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
+                Qt.TransformationMode.SmoothTransformation,
             )
             self.qrstudio_label.setPixmap(pixmap)
             self.qrstudio_label.setCursor(Qt.CursorShape.PointingHandCursor)
             self.qrstudio_label.mousePressEvent = self.open_qrstudio_link
         gpl_layout.addWidget(self.qrstudio_label)
-        
-        # GPL logo
+
         self.gpl_label = QLabel()
         gpl_logo_path = os.path.join(os.path.dirname(__file__), "gplv3-with-text-136x68.png")
         if os.path.exists(gpl_logo_path):
@@ -303,62 +380,126 @@ class MediaPlayer(QMainWindow):
         gpl_layout.addWidget(self.gpl_label)
         right_layout.addLayout(gpl_layout)
 
-        # 添加到分割器，支持像素级自由拖拽
         splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
-        # 设置初始宽度比例为 3:1（左侧75%，右侧25%）
-        splitter.setSizes([768, 256])
+
+    def adapt_layout_to_screen(self):
+        """根据屏幕分辨率自适应：窗口尺寸、封面大小、左右 7:3 比例、字号、缩放"""
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return
+        geo = screen.availableGeometry()
+        screen_scale = min(geo.width() / 1920.0, geo.height() / 1080.0)
+        ui_scale = self.ui_scale
+
+        # 窗口默认尺寸：可用区域的 ~90%（若未最大化）
+        w, h = int(geo.width() * 0.90), int(geo.height() * 0.90)
+        self.resize(w, h)
+        self.move(geo.center().x() - w // 2, geo.center().y() - h // 2)
+
+        # 左侧封面区域随屏幕与缩放比例调整（最小 320）
+        self.video_label.setMinimumSize(
+            max(320, int(geo.width() * 0.34 * ui_scale)),
+            max(320, int(geo.height() * 0.46 * ui_scale)),
+        )
+        # 歌词栏高度随屏幕与缩放比例调整
+        self.lrc_list.setFixedHeight(max(90, int(geo.height() * 0.12 * ui_scale)))
+        # 右侧面板最小宽度，避免过窄
+        self.right_widget.setMinimumWidth(max(150, int(geo.width() * 0.14 * ui_scale)))
+
+        # 左右比例：封面控制区 75% : 媒体信息区 25%（介于 7:3 ~ 8:2）
+        self._apply_splitter_ratio()
+
+        # 字号自适应（1920x1080 基准 13px，叠加屏幕缩放与用户缩放）
+        font_size = max(10, min(28, round(13 * screen_scale * ui_scale)))
+        if w * ui_scale < 1280:
+            # 窄屏下压缩按钮内边距，避免左侧按钮行把比例撑出 8:2
+            self.setStyleSheet(
+                f"QWidget {{ font-size: {font_size}px; }} "
+                f"QPushButton {{ padding: 2px 4px; }}"
+            )
+        else:
+            self.setStyleSheet(f"QWidget {{ font-size: {font_size}px; }}")
+
+    def _apply_splitter_ratio(self):
+        """按当前窗口宽度应用左右 75:25 比例（减左右边距）"""
+        total = self.width() - 40  # 左右各 20px 边距
+        if total <= 0:
+            total = self.width()
+        if total > 0:
+            self.splitter.setSizes([int(total * 0.75), int(total * 0.25)])
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # 窗口显示后（含最大化）确保左右比例落在 7:3 ~ 8:2
+        QTimer.singleShot(0, self._apply_splitter_ratio)
+
+    def open_equalizer_dialog(self):
+        """打开均衡器窗口（操作真实生效，非假窗口）"""
+        if self.equalizer_dialog is None:
+            self.equalizer_dialog = EqualizerDialog(self)
+        self.equalizer_dialog.show()
+        self.equalizer_dialog.raise_()
+        self.equalizer_dialog.activateWindow()
+
+    def open_scale_dialog(self):
+        """打开界面缩放设置窗口"""
+        if self.scale_dialog is None:
+            self.scale_dialog = ScaleDialog(self)
+        else:
+            # 再次打开时同步当前缩放值
+            self.scale_dialog.slider.setValue(int(round(self.ui_scale * 100)))
+        self.scale_dialog.show()
+        self.scale_dialog.raise_()
+        self.scale_dialog.activateWindow()
+
+    def apply_ui_scale(self):
+        """应用当前缩放比例：字号与控件尺寸即时生效并保存"""
+        save_ui_scale(self.ui_scale)
+        self.adapt_layout_to_screen()
 
     def open_gpl_link(self, event):
+        """打开 GPLv3 许可证页面"""
         QDesktopServices.openUrl(QUrl("https://www.gnu.org/licenses/gpl-3.0"))
 
     def open_qrstudio_link(self, event):
-        QDesktopServices.openUrl(QUrl("https://github.com/liqirui1145-create/player"))  # 替换为实际链接
+        """打开项目主页"""
+        QDesktopServices.openUrl(QUrl("https://github.com/liqirui1145-create/player"))
 
-    # ====================== 自动加载项目目录中的默认封面 ======================
+    def toggle_equalizer(self, enabled):
+        self.equalizer_enabled = enabled
+        self.apply_equalizer_to_player()
+
+    def apply_equalizer_to_player(self):
+        if not hasattr(self, "media_player"):
+            return
+        if not self.equalizer_enabled:
+            self.media_player.set_equalizer(None)
+            return
+        eq = vlc.AudioEqualizer()
+        eq.set_preamp(self.equalizer_preamp)
+        for idx, amp in enumerate(self.equalizer_bands):
+            eq.set_amp_at_index(float(amp), idx)
+        self.media_player.set_equalizer(eq)
+
     def load_default_cover_from_file(self):
-        """自动加载项目目录中的默认封面图片（保持原始分辨率）"""
         cover_path = os.path.join(os.path.dirname(__file__), self.DEFAULT_COVER_FILENAME)
         if os.path.exists(cover_path):
             try:
-                # 保存原始分辨率的图片，不进行缩放
                 self.custom_default_cover = QPixmap(cover_path)
             except Exception:
                 self.custom_default_cover = None
 
-    # ====================== 核心：设置用户自定义默认封面 ======================
-    def set_custom_default_cover(self):
-        """打开文件选择框，让用户上传图片作为全局默认封面（保持原始分辨率）"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择默认封面图片", "",
-            "图片文件 (*.jpg *.jpeg *.png *.bmp *.gif)"
-        )
-        if not file_path:
-            return
-
-        # 加载图片，保持原始分辨率
-        try:
-            # 保存原始分辨率的图片
-            self.custom_default_cover = QPixmap(file_path)
-            QMessageBox.information(self, "设置成功", "默认封面已更换！\n无专辑封面的音频将自动展示该图片")
-            # 如果当前正在播放无封面音频，立即刷新显示
-            if self.cur_media_path and not self.is_video:
-                self.show_default_cover()
-        except Exception:
-            QMessageBox.warning(self, "加载失败", "图片格式错误或文件损坏！")
-
-    # ====================== 展示默认封面（优先用户上传图片） ======================
     def show_default_cover(self):
-        """音频无内嵌封面时，展示默认封面（原始分辨率自适应显示）"""
         if self.custom_default_cover is not None:
-            # 存在用户上传的封面，以原始分辨率自适应显示
-            self.video_label.setPixmap(self.custom_default_cover.scaled(
-                self.video_label.size(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            ))
+            self.video_label.setPixmap(
+                self.custom_default_cover.scaled(
+                    self.video_label.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
         else:
-            # 未上传封面，显示简易占位图
             size = 550
             pix = QPixmap(size, size)
             pix.fill(QColor("#2c3e50"))
@@ -370,228 +511,100 @@ class MediaPlayer(QMainWindow):
             painter.end()
             self.video_label.setPixmap(pix)
 
-    # ====================== 全局键盘事件处理（快捷键） ======================
-    def handle_global_key_press(self, event):
-        """全局快捷键处理 - 按键按下"""
-    # ====================== 全局键盘事件处理（快捷键） ======================
-    def handle_global_key_press(self, event):
-        """全局快捷键处理 - 按键按下"""
-        if event.isAutoRepeat():
-            return False
-        key = event.key()
-        handled = True
-        
-        # 网络串流模式：只允许音量调节
-        if self.is_streaming:
-            # 上方向键：音量+5
-            if key == Qt.Key.Key_Up:
-                vol = self.media_player.audio_get_volume()
-                self.media_player.audio_set_volume(min(vol + 5, 100))
-                self.slider_vol.setValue(self.media_player.audio_get_volume())
-            # 下方向键：音量-5
-            elif key == Qt.Key.Key_Down:
-                vol = self.media_player.audio_get_volume()
-                self.media_player.audio_set_volume(max(vol - 5, 0))
-                self.slider_vol.setValue(self.media_player.audio_get_volume())
-            else:
-                handled = False
-            return handled
-        
-        # 本地文件模式：所有快捷键可用
-        # 空格：短按暂停/播放，长按临时2倍速
-        if key == Qt.Key.Key_Space:
-            self.space_pressed = True
-            self.is_space_long = False
-            self.original_speed = self.cur_speed
-            self.cur_speed = 2.0
-            self.set_play_speed(str(self.cur_speed))
-            self.space_timer.start()
-        # 左方向键：回退10秒
-        elif key == Qt.Key.Key_Left:
-            current_ms = self.media_player.get_time()
-            self.media_player.set_time(max(current_ms - 10000, 0))
-        # 右方向键：快进10秒
-        elif key == Qt.Key.Key_Right:
-            current_ms = self.media_player.get_time()
-            total_ms = self.media_player.get_length()
-            self.media_player.set_time(min(current_ms + 10000, total_ms))
-        # 上方向键：音量+5
-        elif key == Qt.Key.Key_Up:
-            vol = self.media_player.audio_get_volume()
-            self.media_player.audio_set_volume(min(vol + 5, 100))
-            self.slider_vol.setValue(self.media_player.audio_get_volume())
-        # 下方向键：音量-5
-        elif key == Qt.Key.Key_Down:
-            vol = self.media_player.audio_get_volume()
-            self.media_player.audio_set_volume(max(vol - 5, 0))
-            self.slider_vol.setValue(self.media_player.audio_get_volume())
-        # Delete键：删除文件（二次确认）
-        elif key == Qt.Key.Key_Delete:
-            self.delete_current_media()
-        else:
-            handled = False
-        
-        return handled  # 返回True表示事件已处理，不再传递
-    
-    def handle_global_key_release(self, event):
-        """全局快捷键处理 - 按键释放"""
-        key = event.key()
-        handled = False
-        
-        # 网络串流模式：禁用空格键释放事件（避免暂停/播放）
-        if self.is_streaming:
-            return handled
-        
-        if key == Qt.Key.Key_Space and self.space_pressed:
-            self.space_pressed = False
-            self.space_timer.stop()
-            # 短按空格：切换暂停/播放
-            if not self.is_space_long:
-                self.play_pause()
-            # 恢复原始播放倍速
-            self.cur_speed = self.original_speed
-            self.set_play_speed(str(self.cur_speed))
-            handled = True
-        
-        return handled  # 返回True表示事件已处理，不再传递
-    
-    def keyPressEvent(self, event):
-        """主窗口按键事件 - 委托给全局处理"""
-        if not self.handle_global_key_press(event):
-            super().keyPressEvent(event)
-
-    def keyReleaseEvent(self, event):
-        """主窗口按键释放事件 - 委托给全局处理"""
-        if not self.handle_global_key_release(event):
-            super().keyReleaseEvent(event)
-            handled = True
-        
-        return handled  # 返回True表示事件已处理，不再传递
-    
-    def keyPressEvent(self, event):
-        """主窗口按键事件 - 委托给全局处理"""
-        if not self.handle_global_key_press(event):
-            super().keyPressEvent(event)
-
-    def keyReleaseEvent(self, event):
-        """主窗口按键释放事件 - 委托给全局处理"""
-        if not self.handle_global_key_release(event):
-            super().keyReleaseEvent(event)
-
-    # ====================== 文件操作：打开文件夹 + 删除文件 ======================
-    def open_file_folder(self):
-        """一键打开当前文件所在文件夹"""
-        if not self.cur_media_path or not os.path.exists(self.cur_media_path):
-            return
-        os.startfile(os.path.dirname(self.cur_media_path))
-
-    def delete_current_media(self):
-        """删除当前文件（二次弹窗确认）"""
-        if not self.cur_media_path or not os.path.exists(self.cur_media_path):
-            return
-        reply = QMessageBox.question(
-            self, "删除确认",
-            f"确定永久删除该文件？\n{os.path.basename(self.cur_media_path)}\n操作无法撤销！",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+    def set_custom_default_cover(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "选择默认封面图片",
+            "",
+            "图片文件 (*.jpg *.jpeg *.png *.bmp *.gif)",
         )
-        if reply == QMessageBox.StandardButton.Yes:
-            try:
-                self.media_player.stop()
-                os.remove(self.cur_media_path)
-                # 重置界面状态
-                self.cur_media_path = ""
-                self.video_label.clear()
-                self.video_label.setText("请打开媒体文件")
-                self.lrc_list.clear()
-                self.lrc_list.hide()
-                self.info_panel.clear()
-            except Exception:
-                QMessageBox.warning(self, "删除失败", "文件被占用、权限不足或已删除！")
-
-    # ====================== 读取音频元数据（采样率/声道/艺术家/专辑） ======================
-    def read_audio_metadata(self, file_path):
-        self.audio_metadata = {k: "--" for k in self.audio_metadata}
-        if not MutagenFile or self.is_video:
+        if not file_path:
             return
         try:
-            audio = MutagenFile(file_path)
-            if audio:
-                # 音频技术参数
-                if hasattr(audio.info, 'sample_rate'):
-                    self.audio_metadata["sample_rate"] = f"{audio.info.sample_rate} Hz"
-                if hasattr(audio.info, 'channels'):
-                    self.audio_metadata["channels"] = f"{audio.info.channels} 声道"
-                if hasattr(audio.info, 'bitrate'):
-                    self.audio_metadata["bitrate"] = f"{audio.info.bitrate // 1000} kbps"
-                # 标签信息（艺术家、专辑、歌曲标题）
-                tags = audio.tags
-                if tags:
-                    self.audio_metadata["artist"] = tags.get('artist', tags.get('ARTIST', ['--']))[0]
-                    self.audio_metadata["album"] = tags.get('album', tags.get('ALBUM', ['--']))[0]
-                    self.audio_metadata["title"] = tags.get('title', tags.get('TITLE', ['--']))[0]
+            self.custom_default_cover = QPixmap(file_path)
+            QMessageBox.information(self, "设置成功", "默认封面已更换！")
+            if self.cur_media_path and not self.is_video:
+                self.show_default_cover()
         except Exception:
-            pass
+            QMessageBox.warning(self, "加载失败", "图片格式错误或文件损坏！")
 
-    # ====================== 加载音频内嵌封面 ======================
     def load_audio_cover(self, file_path):
-        """加载音频自带专辑封面（原始分辨率），无封面则展示默认封面"""
         try:
             if not MutagenFile:
                 self.show_default_cover()
                 return
             audio = MutagenFile(file_path)
             cover_data = None
-            # 读取MP3/FLAC内嵌封面
             if isinstance(audio, MP3):
                 for tag in audio.tags.values():
-                    if tag.FrameID == "APIC":
+                    if getattr(tag, "FrameID", None) == "APIC":
                         cover_data = tag.data
                         break
             elif isinstance(audio, FLAC):
                 for pic in audio.pictures:
                     cover_data = pic.data
-
             if cover_data:
-                # 存在内嵌封面，以原始分辨率自适应展示
                 img = Image.open(BytesIO(cover_data)).convert("RGBA")
                 qimg = QImage(img.tobytes(), img.width, img.height, QImage.Format.Format_RGBA8888)
-                pixmap = QPixmap.fromImage(qimg)
-                # 自适应显示区域，保持原始宽高比
-                self.video_label.setPixmap(pixmap.scaled(
-                    self.video_label.size(),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
-                ))
+                self.video_label.setPixmap(
+                    QPixmap.fromImage(qimg).scaled(
+                        self.video_label.size(),
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                )
             else:
-                # 无内嵌封面，展示用户自定义默认封面
                 self.show_default_cover()
         except Exception:
             self.show_default_cover()
 
-    # ====================== 播放模式、倍速、字幕、歌词 ======================
+    def open_file_folder(self):
+        if self.cur_media_path and os.path.exists(self.cur_media_path):
+            os.startfile(os.path.dirname(self.cur_media_path))
+
+    def delete_current_media(self):
+        if not self.cur_media_path or not os.path.exists(self.cur_media_path):
+            return
+        reply = QMessageBox.question(
+            self,
+            "删除确认",
+            f"确定永久删除该文件？\n{os.path.basename(self.cur_media_path)}\n操作无法撤销！",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                self.media_player.stop()
+                os.remove(self.cur_media_path)
+                self.reset_player_state()
+            except Exception:
+                QMessageBox.warning(self, "删除失败", "文件被占用、权限不足或已删除！")
+
+    def reset_player_state(self):
+        self.cur_media_path = ""
+        self.video_label.clear()
+        self.video_label.setText("请打开媒体文件")
+        self.lrc_list.clear()
+        self.lrc_list.hide()
+        self.info_panel.clear()
+
     def toggle_loop(self):
-        """切换单曲循环"""
         self.loop_single = not self.loop_single
         self.btn_loop.setText("循环(开启)" if self.loop_single else "单曲循环")
 
     def bind_video_window(self):
-        """绑定VLC视频渲染窗口"""
         self.media_player.set_hwnd(self.video_label.winId())
 
     def set_play_speed(self, text):
-        """设置播放倍速"""
         self.cur_speed = float(text.replace("x", ""))
         self.media_player.set_rate(self.cur_speed)
 
     def load_subtitle(self):
-        """加载SRT外挂字幕"""
         path, _ = QFileDialog.getOpenFileName(self, "加载SRT字幕", "", "*.srt")
         if path:
             self.media_player.subtitle_set_file(path)
 
     def parse_lrc(self, lrc_text):
-        """解析LRC歌词"""
-        reg = re.compile(r'\[(\d+):(\d+)\.(\d+)\]')
+        reg = re.compile(r"\[(\d+):(\d+)\.(\d+)\]")
         times, lyrics = [], []
         for line in lrc_text.splitlines():
             line = line.strip()
@@ -605,7 +618,6 @@ class MediaPlayer(QMainWindow):
         self.lrc_time_list, self.lrc_lines = zip(*combined) if combined else ([], [])
 
     def load_lrc_file(self):
-        """手动加载LRC歌词文件"""
         path, _ = QFileDialog.getOpenFileName(self, "选择LRC歌词", "", "*.lrc")
         if path:
             with open(path, "r", encoding="utf-8") as f:
@@ -614,47 +626,59 @@ class MediaPlayer(QMainWindow):
             self.lrc_list.addItems(self.lrc_lines)
             self.lrc_list.setVisible(True)
 
-    # ====================== 媒体信息面板刷新 ======================
-    def show_media_info(self, path):
+    def read_audio_metadata(self, file_path):
+        self.audio_metadata = {k: "--" for k in self.audio_metadata}
+        if not MutagenFile or self.is_video:
+            return
+        try:
+            audio = MutagenFile(file_path)
+            if audio:
+                if hasattr(audio.info, "sample_rate"):
+                    self.audio_metadata["sample_rate"] = f"{audio.info.sample_rate} Hz"
+                if hasattr(audio.info, "channels"):
+                    self.audio_metadata["channels"] = f"{audio.info.channels} 声道"
+                if hasattr(audio.info, "bitrate"):
+                    self.audio_metadata["bitrate"] = f"{audio.info.bitrate // 1000} kbps"
+                tags = audio.tags
+                if tags:
+                    self.audio_metadata["artist"] = str(tags.get("artist", tags.get("ARTIST", ["--"]))[0])
+                    self.audio_metadata["album"] = str(tags.get("album", tags.get("ALBUM", ["--"]))[0])
+                    self.audio_metadata["title"] = str(tags.get("title", tags.get("TITLE", ["--"]))[0])
+        except Exception:
+            pass
+
+    def show_media_info(self, path, display_name=None):
         self.info_panel.clear()
-        duration = self.media_player.get_length()
-        dur = f"{duration//60000}:{duration%60000//1000:02d}" if duration > 0 else "未知"
-        res = f"{self.media_player.video_get_width()}×{self.media_player.video_get_height()}" if self.is_video else "纯音频"
+        try:
+            duration = self.media_player.get_length()
+        except Exception:
+            duration = -1
+        dur = f"{duration // 60000}:{duration % 60000 // 1000:02d}" if duration > 0 else "未知"
+        try:
+            vw = self.media_player.video_get_width()
+            vh = self.media_player.video_get_height()
+        except Exception:
+            vw = vh = 0
+        res = f"{vw}×{vh}" if self.is_video and vw > 0 else "纯音频"
 
-        # 判断是否为网络串流
-        is_stream = path.startswith(('http://', 'https://', 'rtsp://', 'rtmp://', 'udp://', 'tcp://'))
-
-        if is_stream:
-            # 网络串流：提取URL信息
-            url = path
-            # 提取协议
-            protocol = url.split('://')[0].upper() + '://'
-            # 提取域名/IP
-            host = url.split('://')[1].split('/')[0] if '://' in url else url
-            # 提取路径
-            url_path = '/' + '/'.join(url.split('://')[1].split('/')[1:]) if '://' in url and len(url.split('://')[1].split('/')) > 1 else ''
-            
+        if path.startswith(("http://", "https://", "rtsp://", "rtmp://", "udp://", "tcp://")):
             items = [
                 f"1. 类型：网络串流",
-                f"2. 协议：{protocol}",
-                f"3. 地址：{host}",
-                f"4. 路径：{url_path[:20]}",
-                f"5. 时长：{dur}",
-                f"6. 分辨率：{res}",
-                f"7. 音频码率：{self.audio_metadata['bitrate']}",
-                f"8. 声道：{self.audio_metadata['channels']}",
-                f"9. 采样率：{self.audio_metadata['sample_rate']}",
-                f"10. 倍速：{self.cur_speed}x"
+                f"2. 地址：{path}",
+                f"3. 时长：{dur}",
+                f"4. 分辨率：{res}",
+                f"5. 倍速：{self.cur_speed}x",
             ]
+            if display_name:
+                items.insert(1, f"2. 频道：{display_name}")
         else:
-            # 本地文件：使用原始逻辑
             try:
                 stat = os.stat(path)
                 items = [
                     f"1. 文件名：{os.path.basename(path)[:15]}",
                     f"2. 标题：{self.audio_metadata['title'][:15]}",
                     f"3. 格式：{os.path.splitext(path)[1][1:].upper()}",
-                    f"4. 大小：{stat.st_size/1024/1024:.2f} MB",
+                    f"4. 大小：{stat.st_size / 1024 / 1024:.2f} MB",
                     f"5. 修改时间：{datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')}",
                     f"6. 时长：{dur}",
                     f"7. 分辨率：{res}",
@@ -663,154 +687,216 @@ class MediaPlayer(QMainWindow):
                     f"10. 采样率：{self.audio_metadata['sample_rate']}",
                     f"11. 艺术家：{self.audio_metadata['artist'][:15]}",
                     f"12. 专辑：{self.audio_metadata['album'][:15]}",
-                    f"13. 倍速：{self.cur_speed}x"
+                    f"13. 倍速：{self.cur_speed}x",
                 ]
-            except Exception as e:
-                items = [
-                    f"1. 文件：{os.path.basename(path)[:15]}",
-                    f"2. 错误：无法读取文件信息",
-                    f"3. 时长：{dur}",
-                    f"4. 分辨率：{res}",
-                    f"5. 倍速：{self.cur_speed}x"
-                ]
-
+            except Exception:
+                items = [f"1. 文件：{os.path.basename(path)[:15]}", f"2. 时长：{dur}", f"3. 倍速：{self.cur_speed}x"]
         self.info_panel.addItems(items)
 
-    # ====================== 播放网络串流 ======================
     def play_stream(self):
-        """播放网络串流"""
+        url = self.stream_url_input.currentText().strip()
+        if not url:
+            QMessageBox.warning(self, "输入错误", "请输入有效的网络串流地址！")
+            return
+        if not (url.startswith(("http://", "https://", "rtsp://", "rtmp://", "udp://", "tcp://"))):
+            QMessageBox.warning(self, "格式错误", "请输入有效的网络协议地址（如 http://, https://, rtsp://）")
+            return
+
+        # 自动识别 M3U/M3U8 播放列表链接
+        if self.is_m3u_url(url):
+            self.load_m3u_playlist(url)
+            return
+
+        self._play_stream_url(url)
+
+    # ====================== M3U / M3U8 电视台列表 ======================
+    def is_m3u_url(self, url):
+        """判断是否为 M3U/M3U8 播放列表链接"""
+        lower = url.lower().split("?")[0].split("#")[0]
+        return lower.endswith((".m3u", ".m3u8")) or ".m3u8" in lower or ".m3u?" in url.lower()
+
+    def load_m3u_playlist(self, url):
+        """异步下载并解析 M3U/M3U8 播放列表"""
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        request = QNetworkRequest(QUrl(url))
+        request.setTransferTimeout(15000)
+        reply = self.network_manager.get(request)
+        reply.finished.connect(lambda: self.on_m3u_downloaded(reply))
+
+    def on_m3u_downloaded(self, reply):
+        QApplication.restoreOverrideCursor()
         try:
-            url = self.stream_url_input.currentText().strip()
-            if not url:
-                QMessageBox.warning(self, "输入错误", "请输入有效的网络串流地址！")
+            if reply.error() != QNetworkReply.NetworkError.NoError:
+                QMessageBox.warning(self, "加载失败", f"无法获取M3U列表：{reply.errorString()}")
+                reply.deleteLater()
                 return
 
-            # 验证URL格式
-            if not (url.startswith('http://') or url.startswith('https://') or 
-                    url.startswith('rtsp://') or url.startswith('rtmp://') or
-                    url.startswith('udp://') or url.startswith('tcp://')):
-                QMessageBox.warning(self, "格式错误", "请输入有效的网络协议地址（如 http://, https://, rtsp://）")
-                return
+            raw = bytes(reply.readAll())
+            final_url = reply.url().toString()
+            reply.deleteLater()
 
-            # 停止当前播放
-            if self.media_player.is_playing():
-                self.media_player.stop()
+            text = None
+            for enc in ("utf-8", "gbk", "latin-1"):
+                try:
+                    text = raw.decode(enc)
+                    break
+                except Exception:
+                    continue
+            if text is None:
+                text = raw.decode("utf-8", errors="ignore")
 
-            self.cur_media_path = url
-            self.is_streaming = True  # 标记为网络串流
-            
-            # 判断是否为视频流：检查扩展名或常见视频协议
-            video_extensions = ('.mp4', '.mkv', '.avi', '.mov', '.flv', '.webm', '.ts', '.m3u8', 
-                               '.mpeg', '.mpg', '.wmv', '.asf', '.m4v', '.3gp', '.ogv')
-            video_protocols = ('rtsp://', 'rtmp://', 'rtp://')
-            
-            # HTTP/HTTPS 流默认视为视频流，除非明确是音频格式
-            is_http_stream = url.lower().startswith('http://') or url.lower().startswith('https://')
-            audio_extensions = ('.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma')
-            
-            self.is_video = url.lower().endswith(video_extensions) or \
-                          any(protocol in url.lower() for protocol in video_protocols) or \
-                          (is_http_stream and not url.lower().endswith(audio_extensions))
-            
-            self.lrc_list.clear()
-            self.lrc_list.hide()
-            
-            # 禁用进度条（网络串流不支持拖拽进度）
-            self.slider_pos.setEnabled(False)
-            self.slider_pos.setStyleSheet("QSlider::groove:horizontal { background: #333; }")
-
-            # 读取音频元数据（对于网络串流可能有限）
-            self.read_audio_metadata(url)
-
-            # 视频流：绑定渲染窗口到主窗口，清空封面
-            if self.is_video:
-                self.bind_video_window()
-                self.video_label.clear()
-                # 设置视频输出窗口
-                self.media_player.set_hwnd(self.video_label.winId())
+            channels = self.parse_m3u_content(text, final_url)
+            if channels:
+                self.open_channel_dialog(channels)
             else:
-                # 音频流：展示默认封面
-                self.show_default_cover()
-
-            # 开始播放网络串流
-            media = self.vlc_instance.media_new(url)
-            # 增大网络缓存容量（毫秒），提高流畅度
-            media.add_option(':network-caching=10000')
-            # 增大缓冲区大小（KB）
-            media.add_option(':buffer-size=8192')
-            # 增加更多优化选项
-            media.add_option(':live-caching=10000')
-            media.add_option(':prefetch-buffer-size=8192')
-            media.add_option(':input-buffer-size=8192')
-            # 允许更大的抖动缓冲
-            media.add_option(':clock-jitter=100')
-            media.add_option(':clock-synchro=0')
-            self.media_player.set_media(media)
-            
-            # 尝试播放
-            result = self.media_player.play()
-            if result == -1:
-                QMessageBox.critical(self, "播放失败", "无法播放该网络串流，请检查URL是否正确或网络是否正常")
-                return
-                
-            self.media_player.set_rate(self.cur_speed)
-
-            # 刷新媒体信息面板
-            self.show_media_info(url)
-
-            # 将URL保存到历史记录（最多保存10条）
-            current_items = [self.stream_url_input.itemText(i) for i in range(self.stream_url_input.count())]
-            if url not in current_items:
-                self.stream_url_input.insertItem(0, url)
-                if self.stream_url_input.count() > 10:
-                    self.stream_url_input.removeItem(self.stream_url_input.count() - 1)
-
-            QMessageBox.information(self, "提示", "网络串流已开始播放\n如果长时间无画面，请检查网络连接或尝试其他地址")
-            
+                # 解析不到频道（可能是 HLS 单流），按普通串流播放
+                self._play_stream_url(final_url)
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"播放网络串流时发生错误:\n{str(e)}")
-            print(f"Stream error: {e}")
+            QMessageBox.warning(self, "解析失败", str(e))
 
-    # ====================== 打开媒体文件（自动加载同目录LRC） ======================
+    def parse_m3u_content(self, text, base_url):
+        """解析 M3U 文本，返回 [(频道名, 流地址), ...]"""
+        channels = []
+        lines = text.splitlines()
+        i, n = 0, len(lines)
+        while i < n:
+            line = lines[i].strip()
+            if line.startswith("#EXTINF"):
+                name = self._extract_extinf_name(line)
+                j = i + 1
+                url_line = None
+                while j < n:
+                    cand = lines[j].strip()
+                    if cand and not cand.startswith("#"):
+                        url_line = cand
+                        break
+                    if cand.startswith("#EXTINF"):
+                        break
+                    j += 1
+                if url_line:
+                    channels.append((name, urljoin(base_url, url_line)))
+                i = j if j < n else n
+            else:
+                i += 1
+        return channels
+
+    def _extract_extinf_name(self, line):
+        """从 #EXTINF 行提取频道名，优先 tvg-name 属性"""
+        name = ""
+        m = re.search(r'tvg-name="([^"]*)"', line)
+        if m and m.group(1).strip():
+            name = m.group(1).strip()
+        if not name and "," in line:
+            name = line.split(",", 1)[1].strip()
+        return name or "未知频道"
+
+    def open_channel_dialog(self, channels):
+        """打开电视台列表窗口"""
+        if self.channel_dialog is None:
+            self.channel_dialog = ChannelListDialog(self)
+        self.channel_dialog.set_channels(channels)
+        self.channel_dialog.show()
+        self.channel_dialog.raise_()
+        self.channel_dialog.activateWindow()
+
+    def parse_m3u_file(self, path):
+        """读取本地 M3U/M3U8 文件并解析频道列表（相对路径基于文件所在目录）"""
+        with open(path, "rb") as f:
+            raw = f.read()
+        text = None
+        for enc in ("utf-8", "gbk", "latin-1"):
+            try:
+                text = raw.decode(enc)
+                break
+            except Exception:
+                continue
+        if text is None:
+            text = raw.decode("utf-8", errors="ignore")
+        base_url = Path(path).as_uri()  # file:///... 相对路径经 urljoin 拼为本地绝对路径
+        return self.parse_m3u_content(text, base_url)
+
+    def load_m3u_file(self):
+        """上传本地 M3U/M3U8 文件，列出台目列表点台播放"""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择M3U/M3U8播放列表", "",
+            "M3U播放列表 (*.m3u *.m3u8)"
+        )
+        if not path:
+            return
+        try:
+            channels = self.parse_m3u_file(path)
+        except Exception as e:
+            QMessageBox.warning(self, "读取失败", f"无法读取文件：{e}")
+            return
+        if not channels:
+            QMessageBox.information(self, "提示", "未在文件中解析到频道")
+            return
+        self.open_channel_dialog(channels)
+
+    def play_channel(self, name, url):
+        """播放选中的电视台"""
+        self._play_stream_url(url, display_name=name)
+
+    def _play_stream_url(self, url, display_name=None):
+        """按地址播放单个网络串流（本地链接或频道流共用）"""
+        if self.media_player.is_playing():
+            self.media_player.stop()
+
+        self.cur_media_path = url
+        self.is_streaming = True
+        self._set_stream_mode(True)
+        self.lrc_list.clear()
+        self.lrc_list.hide()
+
+        self.is_video = url.lower().endswith((".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm", ".ts", ".m3u8")) or url.lower().startswith(("rtsp://", "rtmp://"))
+
+        if self.is_video:
+            self.bind_video_window()
+            self.video_label.clear()
+        else:
+            self.show_default_cover()
+
+        media = self.vlc_instance.media_new(url)
+        self.media_player.set_media(media)
+        result = self.media_player.play()
+        self.media_player.set_rate(self.cur_speed)
+        self.apply_equalizer_to_player()
+        if result == -1:
+            QMessageBox.critical(self, "播放失败", "无法播放该网络串流，请检查URL是否正确或网络是否正常")
+            return
+        self.show_media_info(url, display_name)
+
     def open_media(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "打开媒体文件", "",
-            "媒体文件(*.mp3 *.flac *.wav *.mp4 *.mkv *.avi *.mov *.mpeg *.mpg *.flv *.webm *.m4a *.aac *.ogg *.opus *.wma *.alac *.aiff *.ape *.dsd *.sacd *.iso *.cue *.bin *.img *.dts *.dts-hd *.truehd *.mqa *.mqacd *.sacdsf *.sacdimg *.sacdcue)"
+            self,
+            "打开媒体文件",
+            "",
+            "媒体文件(*.mp3 *.flac *.wav *.mp4 *.mkv *.avi *.mov *.mpeg *.mpg *.flv *.webm *.m4a *.aac *.ogg *.opus *.wma *.alac *.aiff *.ape)",
         )
         if not path:
             return
 
         self.cur_media_path = path
-        self.is_streaming = False  # 标记为本地文件
-        self.is_video = path.lower().endswith(('.mp4', '.mkv', '.avi', '.mov'))
+        self.is_streaming = False
+        self._set_stream_mode(False)
+        self.is_video = path.lower().endswith((".mp4", ".mkv", ".avi", ".mov"))
         self.lrc_list.clear()
         self.lrc_list.hide()
-        
-        # 恢复进度条功能
-        self.slider_pos.setEnabled(True)
-        self.slider_pos.setStyleSheet("")
 
-        # 读取音频元数据
         self.read_audio_metadata(path)
-
         if self.is_video:
-            # 视频文件：绑定渲染窗口，清空封面
             self.bind_video_window()
             self.video_label.clear()
         else:
-            # 音频文件：加载内嵌封面 / 默认封面
             self.load_audio_cover(path)
 
-        # 开始播放
         media = self.vlc_instance.media_new(path)
         self.media_player.set_media(media)
         self.media_player.play()
         self.media_player.set_rate(self.cur_speed)
-
-        # 刷新媒体信息面板
+        self.apply_equalizer_to_player()
         self.show_media_info(path)
 
-        # 自动加载【同目录同名LRC歌词】
         if not self.is_video:
             media_dir = os.path.dirname(path)
             media_name = os.path.splitext(os.path.basename(path))[0]
@@ -824,41 +910,35 @@ class MediaPlayer(QMainWindow):
                 except Exception:
                     pass
 
-    # ====================== 播放基础控制 ======================
     def play_pause(self):
-        """播放 / 暂停"""
         if self.media_player.is_playing():
             self.media_player.pause()
         else:
             self.media_player.play()
             self.media_player.set_rate(self.cur_speed)
+            self.apply_equalizer_to_player()
 
     def stop_play(self):
-        """停止播放"""
         self.media_player.stop()
         self.slider_pos.setValue(0)
 
     def seek_pos(self, val):
-        """进度条拖拽跳转"""
         self.media_player.set_time(val)
 
     def set_volume(self, vol):
-        """音量调节"""
         self.media_player.audio_set_volume(vol)
 
-    # ====================== 进度、歌词、单曲循环逻辑 ======================
     def update_progress_and_lrc(self):
-        if not self.cur_media_path:
+        # 网络串流走低频 update_stream_status，避免高频调用 libvlc 导致 UI 卡顿
+        if not self.cur_media_path or self.is_streaming:
             return
         cur_ms = self.media_player.get_time()
         total_ms = self.media_player.get_length()
 
-        # 同步进度条（网络串流时跳过）
-        if not self.is_streaming and total_ms > 0:
+        if total_ms > 0:
             self.slider_pos.setRange(0, total_ms)
             self.slider_pos.setValue(cur_ms)
 
-        # 同步歌词高亮
         if self.lrc_list.isVisible() and self.lrc_time_list:
             target = -1
             for i, t in enumerate(self.lrc_time_list):
@@ -868,33 +948,25 @@ class MediaPlayer(QMainWindow):
                 self.cur_lrc_idx = target
                 self.lrc_list.setCurrentRow(target)
 
-        # 单曲循环：播放结束自动重播（网络串流不支持）
-        if not self.is_streaming and self.loop_single and total_ms > 0 and cur_ms >= total_ms - 100:
+        if self.loop_single and total_ms > 0 and cur_ms >= total_ms - 100:
             self.media_player.set_time(0)
             self.media_player.play()
 
-    def play_downloaded_media(self, local_path):
-        """播放下载的媒体文件"""
-        if not os.path.exists(local_path):
-            QMessageBox.warning(self, "播放失败", "文件不存在！")
+    def update_stream_status(self):
+        """网络串流低频轮询：仅做轻量检查，避免高频调用 libvlc 卡 UI"""
+        if not self.cur_media_path or not self.is_streaming:
             return
-
-        # 使用现有的open_media方法播放
-        self.open_media_from_path(local_path)
+        # 网络流没有可靠进度；此处保持轻量，避免主线程阻塞。
+        # 后续如需检测断流/缓冲状态，可在这里低频处理。
 
     def open_media_from_path(self, path):
-        """从路径打开媒体文件（简化版）"""
         self.cur_media_path = path
         self.is_streaming = False
-        self.is_video = path.lower().endswith(('.mp4', '.mkv', '.avi', '.mov'))
+        self._set_stream_mode(False)
+        self.is_video = path.lower().endswith((".mp4", ".mkv", ".avi", ".mov"))
         self.lrc_list.clear()
         self.lrc_list.hide()
-        
-        self.slider_pos.setEnabled(True)
-        self.slider_pos.setStyleSheet("")
-
         self.read_audio_metadata(path)
-
         if self.is_video:
             self.bind_video_window()
             self.video_label.clear()
@@ -905,80 +977,322 @@ class MediaPlayer(QMainWindow):
         self.media_player.set_media(media)
         self.media_player.play()
         self.media_player.set_rate(self.cur_speed)
-
+        self.apply_equalizer_to_player()
         self.show_media_info(path)
 
-        # 尝试加载同目录LRC
-        if not self.is_video:
-            media_dir = os.path.dirname(path)
-            media_name = os.path.splitext(os.path.basename(path))[0]
-            lrc_path = os.path.join(media_dir, f"{media_name}.lrc")
-            if os.path.exists(lrc_path):
-                try:
-                    with open(lrc_path, "r", encoding="utf-8") as f:
-                        self.parse_lrc(f.read())
-                    self.lrc_list.addItems(self.lrc_lines)
-                    self.lrc_list.setVisible(True)
-                except Exception:
-                    pass
 
-if HAS_WIN32:
-    class PowerEventWindow:
-        """监听Windows电源事件的隐藏窗口"""
-        
-        def __init__(self, media_player):
-            self.media_player = media_player
-            self.hwnd = None
-            self.register_window()
-        
-        def register_window(self):
-            """注册隐藏窗口以接收电源事件"""
-            # 窗口类名
-            wc = win32gui.WNDCLASS()
-            wc.lpfnWndProc = self.wnd_proc
-            wc.lpszClassName = "MediaPlayerPowerEventWindow"
-            wc.hInstance = win32api.GetModuleHandle(None)
-            
-            # 注册窗口类
-            try:
-                win32gui.RegisterClass(wc)
-            except:
-                pass  # 类已注册
-            
-            # 创建隐藏窗口
-            self.hwnd = win32gui.CreateWindowEx(
-                0,
-                "MediaPlayerPowerEventWindow",
-                "",
-                0,
-                0, 0, 0, 0,
-                0, 0,
-                win32api.GetModuleHandle(None),
-                None
-            )
-            
-            # 无需额外注册，WM_POWERBROADCAST 消息会自动发送到所有顶级窗口
-        
-        def wnd_proc(self, hwnd, msg, wparam, lparam):
-            """窗口消息处理函数"""
-            if msg == win32con.WM_POWERBROADCAST:
-                if wparam == win32con.PBT_APMSUSPEND:
-                    # 系统即将进入休眠/睡眠
-                    self.media_player.on_system_suspend()
-                elif wparam == win32con.PBT_APMRESUMESUSPEND:
-                    # 系统从休眠/睡眠恢复
-                    self.media_player.on_system_resume()
-            
-            return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
+class EqualizerDialog(QDialog):
+    """均衡器窗口：所有调节实时生效，非假窗口"""
+
+    def __init__(self, player, parent=None):
+        super().__init__(parent)
+        self.player = player
+        self.setWindowTitle("均衡器")
+        self.setMinimumWidth(660)
+        self.equalizer_sliders = []
+        self.equalizer_value_labels = []
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+
+        # 顶部：预设 + 启用 + 重置
+        top_row = QHBoxLayout()
+        top_row.setSpacing(6)
+        self.eq_preset_combo = QComboBox()
+        self.eq_preset_combo.addItems([
+            "平直", "古典", "俱乐部", "舞曲", "低音增强",
+            "低音+高音增强", "高音增强", "耳机", "大厅", "现场",
+            "派对", "流行", "雷鬼", "摇滚", "斯卡", "柔和", "柔摇滚", "电子",
+        ])
+        self.eq_preset_combo.setCurrentText("平直")
+        self.eq_preset_combo.currentTextChanged.connect(self.apply_equalizer_preset)
+
+        self.eq_enable_checkbox = QCheckBox("启用均衡器")
+        self.eq_enable_checkbox.setChecked(self.player.equalizer_enabled)
+        self.eq_enable_checkbox.toggled.connect(self.toggle_equalizer)
+
+        self.eq_reset_btn = QPushButton("重置")
+        self.eq_reset_btn.clicked.connect(self.reset_equalizer)
+
+        top_row.addWidget(QLabel("预设："))
+        top_row.addWidget(self.eq_preset_combo)
+        top_row.addWidget(self.eq_enable_checkbox)
+        top_row.addWidget(self.eq_reset_btn)
+        top_row.addStretch()
+        layout.addLayout(top_row)
+
+        # 10 段频段滑块
+        band_row = QHBoxLayout()
+        band_row.setSpacing(8)
+        for freq in [31.25, 62.5, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0]:
+            band_widget = QWidget()
+            band_layout = QVBoxLayout(band_widget)
+            band_layout.setSpacing(4)
+            freq_label = QLabel(f"{freq:.0f}")
+            freq_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            value_label = QLabel("0dB")
+            value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            slider = QSlider(Qt.Orientation.Vertical)
+            slider.setRange(-12, 12)
+            slider.setValue(0)
+            slider.setSingleStep(1)
+            slider.setTickPosition(QSlider.TickPosition.TicksBothSides)
+            slider.setTickInterval(2)
+            slider.valueChanged.connect(self.on_equalizer_slider_changed)
+            band_layout.addWidget(freq_label)
+            band_layout.addWidget(slider, stretch=1)
+            band_layout.addWidget(value_label)
+            band_row.addWidget(band_widget)
+            self.equalizer_sliders.append(slider)
+            self.equalizer_value_labels.append(value_label)
+        layout.addLayout(band_row)
+
+        self.sync_sliders_from_player()
+
+    def sync_sliders_from_player(self):
+        """打开时用播放器当前均衡器状态初始化滑块与预设显示"""
+        for slider, value in zip(self.equalizer_sliders, self.player.equalizer_bands):
+            slider.blockSignals(True)
+            slider.setValue(int(round(value)))
+            slider.blockSignals(False)
+        self.update_equalizer_labels()
+        for i in range(self.eq_preset_combo.count()):
+            name = self.eq_preset_combo.itemText(i)
+            if get_equalizer_preset_values(name) == self.player.equalizer_bands:
+                self.eq_preset_combo.blockSignals(True)
+                self.eq_preset_combo.setCurrentText(name)
+                self.eq_preset_combo.blockSignals(False)
+                break
+
+    def toggle_equalizer(self, enabled):
+        self.player.toggle_equalizer(enabled)
+
+    def reset_equalizer(self):
+        self.player.equalizer_bands = [0.0] * 10
+        self.player.equalizer_preamp = 0.0
+        self.eq_preset_combo.blockSignals(True)
+        self.eq_preset_combo.setCurrentText("平直")
+        self.eq_preset_combo.blockSignals(False)
+        for slider in self.equalizer_sliders:
+            slider.setValue(0)
+        self.update_equalizer_labels()
+        self.player.apply_equalizer_to_player()
+
+    def apply_equalizer_preset(self, preset_name):
+        values = get_equalizer_preset_values(preset_name)
+        self.player.equalizer_bands = list(values)
+        for slider, value in zip(self.equalizer_sliders, values):
+            slider.blockSignals(True)
+            slider.setValue(int(round(value)))
+            slider.blockSignals(False)
+        self.update_equalizer_labels()
+        self.player.apply_equalizer_to_player()
+
+    def on_equalizer_slider_changed(self, value):
+        slider = self.sender()
+        if slider is None:
+            return
+        idx = self.equalizer_sliders.index(slider)
+        self.player.equalizer_bands[idx] = float(value)
+        # 手动调节后切回“平直(自定义)”，但不触发预设应用，避免重置滑块
+        self.eq_preset_combo.blockSignals(True)
+        self.eq_preset_combo.setCurrentText("平直")
+        self.eq_preset_combo.blockSignals(False)
+        self.update_equalizer_labels()
+        self.player.apply_equalizer_to_player()
+
+    def update_equalizer_labels(self):
+        for slider, label in zip(self.equalizer_sliders, self.equalizer_value_labels):
+            label.setText(f"{slider.value()}dB")
+
+
+class ScaleDialog(QDialog):
+    """界面缩放设置窗口：调整比例即时生效并保存"""
+
+    def __init__(self, player, parent=None):
+        super().__init__(parent)
+        self.player = player
+        self.setWindowTitle("界面缩放")
+        self.setMinimumWidth(380)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        tip = QLabel("调整界面缩放比例。高清屏（4K/高分屏）建议 125%～200%，"
+                     "放大后文字更清晰。")
+        tip.setWordWrap(True)
+        layout.addWidget(tip)
+
+        # 滑块 + 百分比
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setRange(50, 200)
+        self.slider.setValue(int(round(self.player.ui_scale * 100)))
+        self.slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.slider.setTickInterval(25)
+        self.percent_label = QLabel(f"{self.slider.value()}%")
+        self.percent_label.setMinimumWidth(52)
+        self.percent_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.slider.valueChanged.connect(lambda v: self.percent_label.setText(f"{v}%"))
+        row.addWidget(self.slider)
+        row.addWidget(self.percent_label)
+        layout.addLayout(row)
+
+        # 快捷预设
+        preset_row = QHBoxLayout()
+        preset_row.setSpacing(6)
+        for text, val in [("100%", 100), ("125%", 125), ("150%", 150), ("200%", 200)]:
+            btn = QPushButton(text)
+            btn.setProperty("scale_val", val)
+            btn.clicked.connect(lambda _=False, v=val: self.slider.setValue(v))
+            preset_row.addWidget(btn)
+        preset_row.addStretch()
+        layout.addLayout(preset_row)
+
+        # 操作按钮
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(6)
+        self.apply_btn = QPushButton("应用")
+        self.apply_btn.clicked.connect(self.apply_scale)
+        self.reset_btn = QPushButton("恢复默认")
+        self.reset_btn.clicked.connect(lambda: self.slider.setValue(100))
+        self.close_btn = QPushButton("关闭")
+        self.close_btn.clicked.connect(self.close)
+        btn_row.addWidget(self.apply_btn)
+        btn_row.addWidget(self.reset_btn)
+        btn_row.addWidget(self.close_btn)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+    def apply_scale(self):
+        """应用缩放比例：写入配置并即时刷新界面"""
+        scale = self.slider.value() / 100.0
+        self.player.ui_scale = scale
+        self.player.apply_ui_scale()
+
+
+class ChannelListDialog(QDialog):
+    """电视台列表窗口：列出 M3U/M3U8 中的频道，点台播放"""
+
+    def __init__(self, player, parent=None):
+        super().__init__(parent)
+        self.player = player
+        self.channels = []
+        self.setWindowTitle("电视台列表")
+        self.resize(380, 520)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("搜索频道...")
+        self.search_edit.textChanged.connect(self.filter_channels)
+        layout.addWidget(self.search_edit)
+
+        self.channel_list = QListWidget()
+        self.channel_list.itemDoubleClicked.connect(self.play_selected)
+        layout.addWidget(self.channel_list, stretch=1)
+
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        self.play_btn = QPushButton("播放选中")
+        self.play_btn.clicked.connect(self.play_selected)
+        self.count_label = QLabel("共 0 个频道")
+        self.close_btn = QPushButton("关闭")
+        self.close_btn.clicked.connect(self.close)
+        row.addWidget(self.play_btn)
+        row.addWidget(self.count_label)
+        row.addStretch()
+        row.addWidget(self.close_btn)
+        layout.addLayout(row)
+
+    def set_channels(self, channels):
+        """填充频道列表"""
+        self.channels = channels
+        self.channel_list.clear()
+        for name, url in channels:
+            item = QListWidgetItem(name)
+            item.setData(Qt.ItemDataRole.UserRole, url)
+            self.channel_list.addItem(item)
+        if self.channel_list.count() > 0:
+            self.channel_list.setCurrentRow(0)
+        self.count_label.setText(f"共 {len(channels)} 个频道")
+        self.search_edit.clear()
+
+    def filter_channels(self, text):
+        """按关键字过滤频道"""
+        keyword = text.strip().lower()
+        for i in range(self.channel_list.count()):
+            item = self.channel_list.item(i)
+            item.setHidden(bool(keyword) and keyword not in item.text().lower())
+
+    def current_channel(self):
+        """返回当前选中的 (频道名, 流地址)"""
+        item = self.channel_list.currentItem()
+        if item is None:
+            return None
+        return item.text(), item.data(Qt.ItemDataRole.UserRole)
+
+    def play_selected(self, *_):
+        """播放当前选中的频道"""
+        ch = self.current_channel()
+        if ch is None:
+            QMessageBox.information(self, "提示", "请先选择一个频道")
+            return
+        name, url = ch
+        self.player.play_channel(name, url)
+
+
+def get_equalizer_preset_values(preset_name):
+    presets = {
+        "平直": [0.0] * 10,
+        "古典": [-1.0, -0.5, 0.0, 0.5, 0.8, 1.0, 0.8, 0.5, 0.0, -0.5],
+        "俱乐部": [0.7, 0.6, 0.3, -0.2, -0.4, -0.2, 0.2, 0.5, 0.7, 0.8],
+        "舞曲": [1.0, 0.8, 0.4, -0.1, -0.3, -0.1, 0.3, 0.7, 0.9, 1.1],
+        "低音增强": [1.5, 1.2, 0.8, 0.3, -0.1, -0.4, -0.6, -0.8, -1.0, -1.2],
+        "低音+高音增强": [1.2, 0.9, 0.5, 0.0, -0.2, -0.4, 0.1, 0.6, 1.0, 1.3],
+        "高音增强": [-0.8, -0.6, -0.3, 0.1, 0.4, 0.7, 1.0, 1.3, 1.5, 1.7],
+        "耳机": [0.5, 0.7, 0.9, 1.0, 0.8, 0.6, 0.4, 0.2, 0.1, 0.0],
+        "大厅": [0.4, 0.5, 0.6, 0.7, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2],
+        "现场": [0.6, 0.5, 0.3, 0.1, -0.1, -0.2, 0.0, 0.4, 0.7, 0.9],
+        "派对": [1.0, 0.8, 0.4, 0.0, -0.2, 0.0, 0.4, 0.8, 1.0, 1.2],
+        "流行": [0.8, 0.7, 0.4, 0.0, -0.2, -0.1, 0.3, 0.6, 0.8, 0.9],
+        "雷鬼": [0.5, 0.4, 0.1, -0.2, -0.1, 0.1, 0.4, 0.8, 1.0, 0.7],
+        "摇滚": [1.2, 0.9, 0.5, 0.0, -0.2, -0.4, -0.2, 0.4, 0.8, 1.2],
+        "斯卡": [0.7, 0.6, 0.3, 0.0, -0.2, -0.1, 0.2, 0.6, 0.9, 0.8],
+        "柔和": [-0.4, -0.3, -0.1, 0.2, 0.5, 0.8, 0.8, 0.6, 0.4, 0.2],
+        "柔摇滚": [0.3, 0.4, 0.5, 0.6, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1],
+        "电子": [0.9, 0.8, 0.6, 0.2, -0.1, -0.3, 0.2, 0.7, 1.0, 1.2],
+    }
+    return presets.get(preset_name, presets["平直"])[:]
+
+
+SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "ui_settings.json")
+
+
+def load_ui_scale():
+    """读取保存的界面缩放比例，非法/缺失时返回 1.0"""
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        scale = float(data.get("ui_scale", 1.0))
+        return 0.5 if scale < 0.5 else 2.0 if scale > 2.0 else scale
+    except Exception:
+        return 1.0
+
+
+def save_ui_scale(scale):
+    """保存界面缩放比例"""
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump({"ui_scale": round(scale, 2)}, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
-    print("Starting Media Player...")
     app = QApplication(sys.argv)
-    print("QApplication created")
     win = MediaPlayer()
-    print("MediaPlayer created")
     win.show()
-    print("Window shown, entering event loop...")
     app.exec()
-    print("Application exited")
