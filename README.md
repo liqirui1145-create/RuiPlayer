@@ -1,5 +1,3 @@
-AI with liqirui1145-create开发，由本人输入提示词，doubao with deepseek V4 flash
-默认封面：https://commons.wikimedia.org/wiki/File:Xinjiang_Old_and_young_(Populus_diversifolia_%E8%83%A1%E6%9D%A8)_(4973519309).jpg
 # 多媒体播放器 (Media Player)
 
 基于 PyQt6 + VLC 的多媒体播放器，支持音频/视频播放、LRC歌词同步、封面显示等功能。
@@ -42,4 +40,7 @@ python p2.py
 
 ## 项目版权
 
-GNU GPL v3.0，见 `LICENSE` 文件，作者：[liqirui1145-create]也可以叫我李启睿
+- GNU GPL v3.0，见 `LICENSE` 文件，作者：[liqirui1145-create]也可以叫我李启睿
+- 默认封面：[https://commons.wikimedia.org/wiki/File:Xinjiang_Old_and_young_(Populus_diversifolia_%E8%83%A1%E6%9D%A8)_(4973519309).jpg
+](url) This file is licensed under the Creative Commons Attribution 2.0 Generic license.
+- 部分代码工作由AI完成（豆包以及DEEPSEEK）
