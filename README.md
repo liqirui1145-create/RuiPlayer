@@ -43,4 +43,4 @@ python p2.py
 - GNU GPL v3.0，见 `LICENSE` 文件，作者：[liqirui1145-create]也可以叫我李启睿
 - 默认封面：[https://commons.wikimedia.org/wiki/File:Xinjiang_Old_and_young_(Populus_diversifolia_%E8%83%A1%E6%9D%A8)_(4973519309).jpg
 ](url) This file is licensed under the Creative Commons Attribution 2.0 Generic license.
-- 部分代码工作由AI完成（豆包以及DEEPSEEK）
+- 部分代码工作以及MD的撰写由AI完成（豆包以及DEEPSEEK）
