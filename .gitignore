@@ -1,0 +1,16 @@
+# 虚拟环境
+venv/
+.venv/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 运行时生成的配置
+ui_settings.json
+
+# 打包产物
+build/
+dist/
+*.egg-info/
