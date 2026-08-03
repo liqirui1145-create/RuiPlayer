@@ -2,7 +2,7 @@ AI with liqirui1145-create开发，由本人输入提示词，doubao with deepse
 默认封面：https://commons.wikimedia.org/wiki/File:Xinjiang_Old_and_young_(Populus_diversifolia_%E8%83%A1%E6%9D%A8)_(4973519309).jpg
 # 多媒体播放器 (Media Player)
 
-基于 PyQt6 + VLC 的多媒体播放器，支持音频/视频播放、LRC歌词同步、封面显示以及 Telegram 媒体下载等功能。
+基于 PyQt6 + VLC 的多媒体播放器，支持音频/视频播放、LRC歌词同步、封面显示等功能。
 
 ## 功能特性
 
