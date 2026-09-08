@@ -3,7 +3,7 @@
 [![Image License: CC BY 2.0](https://img.shields.io/badge/Image_License-CC_BY_2.0-lightgrey.svg)](COPYRIGHT.md)
 [![依赖协议](https://img.shields.io/badge/Dependencies-LGPL%2FBSD%2FHPND-green.svg)](COPYRIGHT.md)
 
-# 多媒体播放器 (Media Player)
+# RuiPlayer多媒体播放器 (RuiPlayer)
 
 基于 PyQt6 + VLC 的多媒体播放器，支持音频/视频播放、LRC歌词同步、封面显示等功能。
 
