@@ -1,7 +1,7 @@
 # 版权与许可声明
 
 ## 项目基本信息
-- **项目名称**：[https://github.com/liqirui1145-create/RuiPlayer]RuiPlayer
+- **项目名称**：[https://github.com/liqirui1145-create/RuiPlayer] RuiPlayer
 - **版权所有者**：liqirui1145-create
 - **主要许可证**：GNU General Public License v3.0
 
