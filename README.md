@@ -19,7 +19,7 @@
 ## 安装依赖
 
 ```bash
-pip install pyqt6 python-vlc mutagen pillow pywin32 telethon python-dotenv
+pip install pyqt6 python-vlc mutagen pillow pywin32 python-dotenv
 ```
 
 ## 运行
@@ -38,9 +38,8 @@ python p2.py
 | ↑ | 音量+5 |
 | ↓ | 音量-5 |
 
-## 项目版权
+# 项目版权
 
-- GNU GPL v3.0，见 `LICENSE` 文件，作者：[liqirui1145-create]也可以叫我李启睿
-- 默认封面：[https://commons.wikimedia.org/wiki/File:Xinjiang_Old_and_young_(Populus_diversifolia_%E8%83%A1%E6%9D%A8)_(4973519309).jpg
-](url) This file is licensed under the Creative Commons Attribution 2.0 Generic license.
-- 部分代码工作以及MD的撰写由AI完成（豆包以及DEEPSEEK）
+[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Image License: CC BY 2.0](https://img.shields.io/badge/Image_License-CC_BY_2.0-lightgrey.svg)](COPYRIGHT.md)
+[![依赖协议](https://img.shields.io/badge/Dependencies-LGPL%2FBSD%2FHPND-green.svg)](COPYRIGHT.md)
