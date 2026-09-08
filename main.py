@@ -239,7 +239,17 @@ class MediaPlayer(QMainWindow):
         self.btn_loop.setText("循环(开启)" if self.loop_single else "单曲循环")
 
     def bind_video_window(self):
-        self.media_player.set_hwnd(self.video_label.winId())
+        """将 VLC 视频画面嵌入视频标签，按平台使用正确的窗口句柄。
+        Windows→set_hwnd；macOS→set_nsobject；Linux(X11/XWayland)→set_xwindow。
+        set_hwnd 在 Linux 上无效，会导致有声音无画面。
+        """
+        win_id = int(self.video_label.winId())
+        if sys.platform.startswith("win"):
+            self.media_player.set_hwnd(win_id)
+        elif sys.platform == "darwin":
+            self.media_player.set_nsobject(win_id)
+        else:
+            self.media_player.set_xwindow(win_id)
 
     def set_play_speed(self, text):
         self.cur_speed = float(text.replace("x", ""))

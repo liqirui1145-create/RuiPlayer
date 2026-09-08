@@ -5,6 +5,34 @@ try:
 except ImportError:
     MutagenFile = None
 
+# 各音频格式的标题/艺术家/专辑标签键（按优先级排列）
+TAG_KEY_MAP = {
+    "title": ("TIT2", "title", "TITLE", "\xa9nam"),
+    "artist": ("TPE1", "artist", "ARTIST", "\xa9ART"),
+    "album": ("TALB", "album", "ALBUM", "\xa9alb"),
+}
+
+
+def get_tag_text(tags, field):
+    """从音频标签对象中读取首个文本值，兼容 MP3(ID3)/FLAC・OGG(Vorbis)/M4A(MP4) 等格式。
+    Vorbis 容器对不存在的键会抛异常，因此统一用成员判断 + try/except 兜底。"""
+    if not tags:
+        return None
+    for key in TAG_KEY_MAP.get(field, ()):
+        try:
+            if key not in tags:
+                continue
+            value = tags[key]
+        except Exception:
+            continue
+        if hasattr(value, "text") and value.text:
+            return str(value.text[0])
+        if isinstance(value, (list, tuple)) and len(value) > 0:
+            return str(value[0])
+        if isinstance(value, str) and value.strip():
+            return str(value)
+    return None
+
 
 class MetadataReader:
     @staticmethod
@@ -27,9 +55,9 @@ class MetadataReader:
 
             tags = audio.tags
             if tags:
-                metadata["artist"] = tags.get('artist', tags.get('ARTIST', ['--']))[0]
-                metadata["album"] = tags.get('album', tags.get('ALBUM', ['--']))[0]
-                metadata["title"] = tags.get('title', tags.get('TITLE', ['--']))[0]
+                metadata["title"] = get_tag_text(tags, "title") or "--"
+                metadata["artist"] = get_tag_text(tags, "artist") or "--"
+                metadata["album"] = get_tag_text(tags, "album") or "--"
 
         except Exception:
             pass

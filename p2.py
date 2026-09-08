@@ -46,6 +46,90 @@ except Exception:
     MP3 = FLAC = None
 
 
+# 各音频格式的标题/艺术家/专辑标签键（按优先级排列）
+TAG_KEY_MAP = {
+    "title": ("TIT2", "title", "TITLE", "\xa9nam"),
+    "artist": ("TPE1", "artist", "ARTIST", "\xa9ART"),
+    "album": ("TALB", "album", "ALBUM", "\xa9alb"),
+}
+
+
+def get_tag_text(tags, field):
+    """从音频标签对象中读取首个文本值，兼容多种标签格式：
+    - MP3: mutagen ID3 帧（如 TIT2/TPE1/TALB，值为含 .text 的帧对象）
+    - FLAC/OGG: VorbisComment（小写键 title/artist/album，值为列表）
+    - M4A/MP4: MP4Tags（©nam/©ART/©alb，值为列表）
+    Vorbis 容器对不存在的键会抛异常，因此统一用成员判断 + try/except 兜底。
+    """
+    if not tags:
+        return None
+    for key in TAG_KEY_MAP.get(field, ()):
+        try:
+            if key not in tags:
+                continue
+            value = tags[key]
+        except Exception:
+            continue
+        # ID3 文本帧：value.text 为字符串列表
+        if hasattr(value, "text") and value.text:
+            return str(value.text[0])
+        # 列表/元组（Vorbis、MP4 等）
+        if isinstance(value, (list, tuple)) and len(value) > 0:
+            return str(value[0])
+        # 纯字符串
+        if isinstance(value, str) and value.strip():
+            return str(value)
+    return None
+
+
+# 视频扩展名：本地文件与网络串流分开判定
+LOCAL_VIDEO_EXTS = (".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm", ".mpeg", ".mpg")
+STREAM_VIDEO_EXTS = LOCAL_VIDEO_EXTS + (".ts", ".m3u8")
+
+
+class FullscreenWindow(QWidget):
+    """全屏展示窗口：视频由 VLC 直接渲染铺满屏幕；音频显示放大封面。
+    按 ESC 或双击退出全屏。"""
+
+    def __init__(self, player):
+        super().__init__()
+        self.player = player
+        self.setWindowTitle("全屏播放")
+        self.setWindowFlags(
+            Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint
+        )
+        self.setStyleSheet("background: #000000;")
+        self.label = QLabel(self)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setStyleSheet("background: #000000; color: #888888;")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.label)
+
+    def keyPressEvent(self, event):
+        # ESC 退出全屏；其余按键转发给播放器（空格暂停/方向键等仍可用）
+        if event.key() == Qt.Key.Key_Escape:
+            self.player.exit_fullscreen()
+            return
+        if self.player.handle_global_key_press(event):
+            return
+        super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event):
+        if self.player.handle_global_key_release(event):
+            return
+        super().keyReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        self.player.exit_fullscreen()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # 音频全屏：封面随窗口尺寸自适应居中显示
+        if self.player is not None and not self.player.is_video:
+            self.player.update_fullscreen_art()
+
+
 class MediaPlayer(QMainWindow):
     DEFAULT_COVER_FILENAME = "Xinjiang_Old_and_young_(Populus_diversifolia_胡杨)_(4973519309).jpg"
 
@@ -91,6 +175,10 @@ class MediaPlayer(QMainWindow):
 
         self.network_manager = QNetworkAccessManager(self)
         self.channel_dialog = None
+
+        # 全屏播放状态（视频画面 / 音频封面铺满屏幕，ESC 退出）
+        self.is_fullscreen = False
+        self.fullscreen_window = None
 
         self.audio_metadata = {
             "sample_rate": "--",
@@ -157,6 +245,13 @@ class MediaPlayer(QMainWindow):
         self.btn_set_cover.installEventFilter(self)
 
     def eventFilter(self, obj, event):
+        if (
+            obj is self.video_label
+            and event.type() == QEvent.Type.MouseButtonDblClick
+        ):
+            # 双击画面/封面切换全屏
+            self.toggle_fullscreen()
+            return True
         if event.type() == QEvent.Type.KeyPress:
             return self.handle_global_key_press(event)
         if event.type() == QEvent.Type.KeyRelease:
@@ -168,6 +263,15 @@ class MediaPlayer(QMainWindow):
             return False
         key = event.key()
         handled = True
+
+        # 全屏相关：F 切换全屏；ESC 退出全屏（串流/本地均生效）
+        if key == Qt.Key.Key_F:
+            self.toggle_fullscreen()
+            return True
+        if key == Qt.Key.Key_Escape:
+            if self.is_fullscreen:
+                self.exit_fullscreen()
+            return True
 
         if self.is_streaming:
             if key == Qt.Key.Key_Up:
@@ -293,6 +397,9 @@ class MediaPlayer(QMainWindow):
         self.slider_vol.setRange(0, 100)
         self.slider_vol.setValue(80)
         row2.addWidget(self.slider_vol, stretch=1)
+        self.btn_fullscreen = QPushButton("全屏")
+        self.btn_fullscreen.setToolTip("全屏播放视频/封面，按 F 或双击画面进入，按 ESC 退出")
+        row2.addWidget(self.btn_fullscreen)
 
         self.btn_open.clicked.connect(self.open_media)
         self.btn_lyric.clicked.connect(self.load_lrc_file)
@@ -302,6 +409,7 @@ class MediaPlayer(QMainWindow):
         self.btn_loop.clicked.connect(self.toggle_loop)
         self.btn_open_folder.clicked.connect(self.open_file_folder)
         self.btn_set_cover.clicked.connect(self.set_custom_default_cover)
+        self.btn_fullscreen.clicked.connect(self.toggle_fullscreen)
         self.cbx_speed.currentTextChanged.connect(self.set_play_speed)
         self.slider_pos.sliderMoved.connect(self.seek_pos)
         self.slider_vol.valueChanged.connect(self.set_volume)
@@ -563,6 +671,7 @@ class MediaPlayer(QMainWindow):
             os.startfile(os.path.dirname(self.cur_media_path))
 
     def delete_current_media(self):
+        self.close_fullscreen_on_media_change()
         if not self.cur_media_path or not os.path.exists(self.cur_media_path):
             return
         reply = QMessageBox.question(
@@ -591,8 +700,92 @@ class MediaPlayer(QMainWindow):
         self.loop_single = not self.loop_single
         self.btn_loop.setText("循环(开启)" if self.loop_single else "单曲循环")
 
+    def _set_video_window(self, widget):
+        """把 VLC 视频画面嵌入指定 widget，需按平台传入正确的窗口句柄。
+        Windows → set_hwnd（HWND）；macOS → set_nsobject；
+        Linux/X11(XWayland) → set_xwindow。set_hwnd 在 Linux 上无效，
+        会导致“有声音无画面”，因此不能无条件调用。
+        """
+        win_id = int(widget.winId())
+        if sys.platform.startswith("win"):
+            self.media_player.set_hwnd(win_id)
+        elif sys.platform == "darwin":
+            self.media_player.set_nsobject(win_id)
+        else:
+            # Linux：仅 X11/XWayland 下可嵌入；Wayland 会话无法直接嵌入
+            self.media_player.set_xwindow(win_id)
+
     def bind_video_window(self):
-        self.media_player.set_hwnd(self.video_label.winId())
+        """正常模式下把视频画面绑定到左侧 video_label"""
+        self._set_video_window(self.video_label)
+
+    # ---------------------- 全屏播放 ----------------------
+    def toggle_fullscreen(self):
+        """在普通/全屏之间切换（视频画面或音频封面铺满屏幕）"""
+        if self.is_fullscreen:
+            self.exit_fullscreen()
+        else:
+            self.enter_fullscreen()
+
+    def enter_fullscreen(self):
+        if self.is_fullscreen:
+            return
+        self.is_fullscreen = True
+
+        if self.fullscreen_window is None:
+            self.fullscreen_window = FullscreenWindow(self)
+        fs = self.fullscreen_window
+
+        # 先显示再绑定，确保全屏窗口的原生句柄有效
+        fs.showFullScreen()
+
+        if self.is_video:
+            # 视频：黑底 + VLC 重绑到全屏窗口，实现画面铺满
+            fs.label.show()
+            self._set_video_window(fs.label)
+        else:
+            # 音频：把封面放大铺到全屏窗口
+            self.update_fullscreen_art()
+        fs.raise_()
+        fs.activateWindow()
+        fs.setFocus()
+
+    def update_fullscreen_art(self):
+        """全屏（音频）时按当前封面刷新画面，避免变形并随窗口尺寸自适应"""
+        if not self.is_fullscreen or self.fullscreen_window is None:
+            return
+        fs = self.fullscreen_window
+        fs.label.setText("")
+        pix = self.video_label.pixmap()
+        if pix is not None and not pix.isNull():
+            fs.label.setPixmap(
+                pix.scaled(
+                    fs.label.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
+        else:
+            fs.label.setPixmap(QPixmap())
+            fs.label.setText("请打开媒体文件")
+
+    def exit_fullscreen(self):
+        if not self.is_fullscreen:
+            return
+        self.is_fullscreen = False
+        fs = self.fullscreen_window
+        if fs is not None:
+            fs.hide()
+        if self.is_video:
+            # 恢复绑定回普通窗口，播放不中断
+            self._set_video_window(self.video_label)
+        self.activateWindow()
+        self.setFocus()
+
+    def close_fullscreen_on_media_change(self):
+        """切换媒体/停止播放时若处于全屏则退出，避免状态错乱"""
+        if self.is_fullscreen:
+            self.exit_fullscreen()
 
     def set_play_speed(self, text):
         self.cur_speed = float(text.replace("x", ""))
@@ -641,9 +834,9 @@ class MediaPlayer(QMainWindow):
                     self.audio_metadata["bitrate"] = f"{audio.info.bitrate // 1000} kbps"
                 tags = audio.tags
                 if tags:
-                    self.audio_metadata["artist"] = str(tags.get("artist", tags.get("ARTIST", ["--"]))[0])
-                    self.audio_metadata["album"] = str(tags.get("album", tags.get("ALBUM", ["--"]))[0])
-                    self.audio_metadata["title"] = str(tags.get("title", tags.get("TITLE", ["--"]))[0])
+                    self.audio_metadata["title"] = get_tag_text(tags, "title") or "--"
+                    self.audio_metadata["artist"] = get_tag_text(tags, "artist") or "--"
+                    self.audio_metadata["album"] = get_tag_text(tags, "album") or "--"
         except Exception:
             pass
 
@@ -839,6 +1032,7 @@ class MediaPlayer(QMainWindow):
 
     def _play_stream_url(self, url, display_name=None):
         """按地址播放单个网络串流（本地链接或频道流共用）"""
+        self.close_fullscreen_on_media_change()
         if self.media_player.is_playing():
             self.media_player.stop()
 
@@ -848,7 +1042,7 @@ class MediaPlayer(QMainWindow):
         self.lrc_list.clear()
         self.lrc_list.hide()
 
-        self.is_video = url.lower().endswith((".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm", ".ts", ".m3u8")) or url.lower().startswith(("rtsp://", "rtmp://"))
+        self.is_video = url.lower().endswith(STREAM_VIDEO_EXTS) or url.lower().startswith(("rtsp://", "rtmp://"))
 
         if self.is_video:
             self.bind_video_window()
@@ -876,10 +1070,11 @@ class MediaPlayer(QMainWindow):
         if not path:
             return
 
+        self.close_fullscreen_on_media_change()
         self.cur_media_path = path
         self.is_streaming = False
         self._set_stream_mode(False)
-        self.is_video = path.lower().endswith((".mp4", ".mkv", ".avi", ".mov"))
+        self.is_video = path.lower().endswith(LOCAL_VIDEO_EXTS)
         self.lrc_list.clear()
         self.lrc_list.hide()
 
@@ -919,6 +1114,7 @@ class MediaPlayer(QMainWindow):
             self.apply_equalizer_to_player()
 
     def stop_play(self):
+        self.close_fullscreen_on_media_change()
         self.media_player.stop()
         self.slider_pos.setValue(0)
 
@@ -960,10 +1156,11 @@ class MediaPlayer(QMainWindow):
         # 后续如需检测断流/缓冲状态，可在这里低频处理。
 
     def open_media_from_path(self, path):
+        self.close_fullscreen_on_media_change()
         self.cur_media_path = path
         self.is_streaming = False
         self._set_stream_mode(False)
-        self.is_video = path.lower().endswith((".mp4", ".mkv", ".avi", ".mov"))
+        self.is_video = path.lower().endswith(LOCAL_VIDEO_EXTS)
         self.lrc_list.clear()
         self.lrc_list.hide()
         self.read_audio_metadata(path)
