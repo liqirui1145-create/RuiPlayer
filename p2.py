@@ -37,6 +37,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSlider,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -159,6 +160,52 @@ def get_embedded_lyrics(file_path):
 # 视频扩展名：本地文件与网络串流分开判定
 LOCAL_VIDEO_EXTS = (".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm", ".mpeg", ".mpg")
 STREAM_VIDEO_EXTS = LOCAL_VIDEO_EXTS + (".ts", ".m3u8")
+
+
+# GitHub 网页(blob/raw)链接 → raw 直链，供网络串流输入框使用
+_GITHUB_BLOB_RE = re.compile(
+    r"^https?://github\.com/([^/]+)/([^/]+)/(?:blob|raw)/(.+)$", re.IGNORECASE
+)
+
+
+def normalize_stream_url(url):
+    """规整用户输入的串流地址：
+    - GitHub blob/raw 网页链接自动转成 raw.githubusercontent.com 直链
+    - 缺少协议时补 http://
+    - 本地存在的文件路径原样返回
+    """
+    url = (url or "").strip()
+    if not url:
+        return url
+    match = _GITHUB_BLOB_RE.match(url)
+    if match:
+        user, repo, rest = match.group(1), match.group(2), match.group(3)
+        return f"https://raw.githubusercontent.com/{user}/{repo}/{rest}"
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://", url):
+        return url
+    if os.path.exists(url):
+        return url
+    return "http://" + url
+
+
+def looks_like_hls(text):
+    """HLS 播放列表特征（分段/主列表标签）"""
+    return "#EXT-X-" in (text or "")
+
+
+def load_stream_history():
+    """读取网络串流历史记录"""
+    hist = load_settings().get("stream_history")
+    if not isinstance(hist, list):
+        return []
+    return [h for h in hist if isinstance(h, str) and h.strip()]
+
+
+def save_stream_history(items):
+    """保存网络串流历史记录（最多 10 条）"""
+    data = load_settings()
+    data["stream_history"] = [i for i in items if i][:10]
+    save_settings(data)
 
 
 def format_time_ms(ms):
@@ -654,6 +701,10 @@ class MediaPlayer(QMainWindow):
         self.stream_timer.setInterval(1000)
         self.stream_timer.timeout.connect(self.update_stream_status)
 
+        # 串流状态跟踪（用于失败提示，避免重复弹窗）
+        self._last_stream_state = None
+        self._stream_error_shown = False
+
     def _set_stream_mode(self, streaming):
         """切换轮询模式：网络串流用低频定时器，本地媒体用高频定时器"""
         if streaming:
@@ -875,46 +926,62 @@ class MediaPlayer(QMainWindow):
         self.right_widget = QWidget()
         right_widget = self.right_widget
         right_layout = QVBoxLayout(right_widget)
-        right_layout.setSpacing(10)
+        right_layout.setSpacing(8)
 
-        stream_layout = QHBoxLayout()
-        stream_layout.setSpacing(5)
-        stream_label = QLabel("网络串流 URL:")
+        # 均衡器：置于最上方，点开独立弹窗
+        self.btn_equalizer = QPushButton("均衡器")
+        self.btn_equalizer.setToolTip("点击打开均衡器窗口")
+        self.btn_equalizer.clicked.connect(self.open_equalizer_dialog)
+        right_layout.addWidget(self.btn_equalizer)
+
+        # 右侧分类标签页：串流/设置（已合并）、媒体信息
+        self.right_tabs = QTabWidget()
+        self.right_tabs.setDocumentMode(True)
+
+        # ---- 标签页 1：串流 / 设置 ----
+        tab_stream = QWidget()
+        ts_layout = QVBoxLayout(tab_stream)
+        ts_layout.setSpacing(8)
+
+        stream_label = QLabel("网络串流/列表:")
         self.stream_url_input = QComboBox()
         self.stream_url_input.setEditable(True)
-        self.stream_url_input.addItems(["https://example.com/stream", "rtsp://example.com/camera"])
-        self.stream_url_input.setPlaceholderText("请输入网络串流地址")
+        self.stream_url_input.addItems(load_stream_history())
+        self.stream_url_input.setCurrentIndex(-1)
+        self.stream_url_input.setPlaceholderText(
+            "串流/播放列表 URL，或本地 .m3u/.m3u8 路径（GitHub 链接自动转 raw）"
+        )
+        ts_layout.addWidget(stream_label)
+        ts_layout.addWidget(self.stream_url_input)
+
         self.btn_stream = QPushButton("播放串流")
-        stream_layout.addWidget(stream_label)
-        stream_layout.addWidget(self.stream_url_input)
-        stream_layout.addWidget(self.btn_stream)
-        right_layout.addLayout(stream_layout)
         self.btn_stream.clicked.connect(self.play_stream)
+        ts_layout.addWidget(self.btn_stream)
 
         self.btn_m3u = QPushButton("上传M3U/M3U8文件")
         self.btn_m3u.setToolTip("选择本地M3U/M3U8播放列表，列出电视台点台播放")
         self.btn_m3u.clicked.connect(self.load_m3u_file)
-        right_layout.addWidget(self.btn_m3u)
+        ts_layout.addWidget(self.btn_m3u)
 
-        self.btn_equalizer = QPushButton("均衡器")
-        self.btn_equalizer.setToolTip("点击打开均衡器窗口")
-        self.btn_equalizer.clicked.connect(self.open_equalizer_dialog)
+        ts_layout.addStretch()
 
+        # 设置项并入本标签页
         self.btn_scale = QPushButton("缩放")
         self.btn_scale.setToolTip("点击设置界面缩放比例")
         self.btn_scale.clicked.connect(self.open_scale_dialog)
+        ts_layout.addWidget(self.btn_scale)
 
-        eq_scale_row = QHBoxLayout()
-        eq_scale_row.setSpacing(6)
-        eq_scale_row.addWidget(self.btn_equalizer)
-        eq_scale_row.addWidget(self.btn_scale)
-        right_layout.addLayout(eq_scale_row)
+        self.right_tabs.addTab(tab_stream, "串流/设置")
 
-        title = QLabel("媒体信息")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        right_layout.addWidget(title)
+        # ---- 标签页 2：媒体信息 ----
+        self.tab_info = QWidget()
+        ti_layout = QVBoxLayout(self.tab_info)
+        ti_layout.setContentsMargins(0, 6, 0, 0)
         self.info_panel = QListWidget()
-        right_layout.addWidget(self.info_panel)
+        ti_layout.addWidget(self.info_panel)
+        self.right_tabs.addTab(self.tab_info, "媒体信息")
+
+        right_layout.addWidget(self.right_tabs, stretch=1)
 
         # 右下角：工作室徽标 + GPLv3 徽标
         gpl_layout = QHBoxLayout()
@@ -1549,20 +1616,78 @@ class MediaPlayer(QMainWindow):
         self.info_panel.addItems(items)
 
     def play_stream(self):
-        url = self.stream_url_input.currentText().strip()
+        raw = (self.stream_url_input.currentText() or "").strip()
+        if not raw:
+            QMessageBox.warning(self, "输入错误", "请输入网络串流地址或播放列表路径！")
+            return
+
+        target = normalize_stream_url(raw)
+
+        # 1) 本地文件：.m3u/.m3u8 走播放列表，其它媒体直接打开
+        local_path = self._local_path_from_url(target)
+        if local_path and os.path.exists(local_path):
+            self._remember_stream_url(raw)
+            self._open_local_playlist_or_media(local_path)
+            return
+
+        # 2) 网络地址
+        if not re.match(r"^(https?|rtsp|rtmp|udp|tcp)://", target, re.IGNORECASE):
+            QMessageBox.warning(
+                self, "格式错误",
+                "请输入有效的地址（如 http://、https://、rtsp://）"
+                "或本地 .m3u/.m3u8 文件路径。",
+            )
+            return
+
+        self._remember_stream_url(raw)
+        if target != raw:
+            self.stream_url_input.setEditText(target)
+
+        # m3u/m3u8 链接：先下载解析（HLS 会直接播放）
+        if self.is_m3u_url(target):
+            self.load_m3u_playlist(target)
+            return
+        self._play_stream_url(target)
+
+    def _remember_stream_url(self, url):
+        """记住最近使用的串流地址（供下拉框快速选择）"""
+        history = [h for h in load_stream_history() if h != url]
+        history.insert(0, url)
+        save_stream_history(history[:10])
+
+    @staticmethod
+    def _local_path_from_url(url):
+        """把 file:// URL 或本地路径转成本地文件路径；网络地址返回 None"""
         if not url:
-            QMessageBox.warning(self, "输入错误", "请输入有效的网络串流地址！")
-            return
-        if not (url.startswith(("http://", "https://", "rtsp://", "rtmp://", "udp://", "tcp://"))):
-            QMessageBox.warning(self, "格式错误", "请输入有效的网络协议地址（如 http://, https://, rtsp://）")
-            return
+            return None
+        if url.startswith("file://"):
+            return QUrl(url).toLocalFile() or None
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://", url):
+            return None
+        return url
 
-        # 自动识别 M3U/M3U8 播放列表链接
-        if self.is_m3u_url(url):
-            self.load_m3u_playlist(url)
+    def _open_local_playlist_or_media(self, path):
+        """本地文件：m3u/m3u8 解析为频道列表；HLS 或其它媒体直接播放"""
+        ext = os.path.splitext(path)[1].lower()
+        if ext in (".m3u", ".m3u8"):
+            text = self._read_text_file(path)
+            if text is None:
+                QMessageBox.warning(self, "读取失败", "无法读取该播放列表文件。")
+                return
+            if looks_like_hls(text):
+                # HLS 本地文件：交给 VLC 直接播放
+                self._play_stream_url(Path(path).as_uri())
+                return
+            channels = self.parse_m3u_content(text, Path(path).as_uri())
+            if channels:
+                self.open_channel_dialog(channels)
+            else:
+                QMessageBox.warning(
+                    self, "提示",
+                    "未在该文件中解析到频道；若为 HLS 单片流请直接填播放地址。",
+                )
             return
-
-        self._play_stream_url(url)
+        self.open_media_from_path(path)
 
     # ====================== M3U / M3U8 电视台列表 ======================
     def is_m3u_url(self, url):
@@ -1588,10 +1713,16 @@ class MediaPlayer(QMainWindow):
 
             raw = bytes(reply.readAll())
             final_url = reply.url().toString()
+            try:
+                content_type = (
+                    reply.header(QNetworkRequest.KnownHeaders.ContentTypeHeader) or ""
+                ).lower()
+            except Exception:
+                content_type = ""
             reply.deleteLater()
 
             text = None
-            for enc in ("utf-8", "gbk", "latin-1"):
+            for enc in ("utf-8-sig", "utf-8", "gbk", "latin-1"):
                 try:
                     text = raw.decode(enc)
                     break
@@ -1600,12 +1731,30 @@ class MediaPlayer(QMainWindow):
             if text is None:
                 text = raw.decode("utf-8", errors="ignore")
 
+            head = text.lstrip()[:64].lower()
+            # 返回的是网页而不是原始播放列表（常见于 GitHub blob 链接）
+            if "text/html" in content_type or head.startswith("<!doctype") or head.startswith("<html"):
+                QMessageBox.warning(
+                    self, "不是播放列表",
+                    "该链接返回的是网页而不是原始播放列表。\n"
+                    "如果来自 GitHub，请改用 raw 直链"
+                    "（粘贴 blob 链接时本程序会自动转换）。",
+                )
+                return
+
+            # HLS(.m3u8)：直接交给 VLC 播放，不当作频道列表
+            if looks_like_hls(text):
+                self._play_stream_url(final_url)
+                return
+
             channels = self.parse_m3u_content(text, final_url)
             if channels:
                 self.open_channel_dialog(channels)
             else:
-                # 解析不到频道（可能是 HLS 单流），按普通串流播放
-                self._play_stream_url(final_url)
+                QMessageBox.warning(
+                    self, "解析失败",
+                    "未能从该链接解析出频道列表（可能不是 M3U 播放列表）。",
+                )
         except Exception as e:
             QMessageBox.warning(self, "解析失败", str(e))
 
@@ -1689,8 +1838,16 @@ class MediaPlayer(QMainWindow):
         self.open_channel_dialog(channels)
 
     def play_channel(self, name, url):
-        """播放选中的电视台"""
-        self._play_stream_url(url, display_name=name)
+        """播放选中的频道/曲目：本地文件走本地播放，网络流走串流"""
+        local_path = self._local_path_from_url(url)
+        if local_path and os.path.exists(local_path):
+            ext = os.path.splitext(local_path)[1].lower()
+            if ext in (".m3u", ".m3u8"):
+                self._open_local_playlist_or_media(local_path)
+            else:
+                self.open_media_from_path(local_path)
+        else:
+            self._play_stream_url(url, display_name=name)
 
     def _play_stream_url(self, url, display_name=None):
         """按地址播放单个网络串流（本地链接或频道流共用）"""
@@ -1702,6 +1859,8 @@ class MediaPlayer(QMainWindow):
         self.is_streaming = True
         self._set_stream_mode(True)
         self.clear_lyrics()
+        self._stream_error_shown = False
+        self._last_stream_state = None
 
         self.is_video = url.lower().endswith(STREAM_VIDEO_EXTS) or url.lower().startswith(("rtsp://", "rtmp://"))
 
@@ -1805,11 +1964,22 @@ class MediaPlayer(QMainWindow):
             self.fullscreen_window.sync_from_player()
 
     def update_stream_status(self):
-        """网络串流低频轮询：仅做轻量检查，避免高频调用 libvlc 卡 UI"""
+        """网络串流低频轮询：轻量检查状态，失败时给出一次提示"""
         if not self.cur_media_path or not self.is_streaming:
             return
-        # 网络流没有可靠进度；此处保持轻量，避免主线程阻塞。
-        # 后续如需检测断流/缓冲状态，可在这里低频处理。
+        try:
+            state = self.media_player.get_state()
+        except Exception:
+            state = None
+        if state != self._last_stream_state:
+            self._last_stream_state = state
+            if state == vlc.State.Error and not self._stream_error_shown:
+                self._stream_error_shown = True
+                QMessageBox.warning(
+                    self, "串流错误",
+                    "无法播放该网络串流（链接可能已失效、需要特定网络，"
+                    "或返回的是网页而非原始播放列表）。",
+                )
         if self.is_fullscreen and self.fullscreen_window is not None:
             self.fullscreen_window.sync_from_player()
 

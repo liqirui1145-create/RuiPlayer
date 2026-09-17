@@ -1,5 +1,13 @@
 {
   "ui_scale": 1.25,
   "fullscreen_screen": "HDMI-1",
-  "lyrics_from_metadata": true
+  "lyrics_from_metadata": true,
+  "stream_history": [
+    "https://github.com/suxuang/myIPTV/blob/main/%E7%A7%BB%E5%8A%A8IPTV.m3u",
+    "http://127.0.0.1:43191/live.m3u8",
+    "/tmp/tmpd1mzipj9/list.m3u",
+    "127.0.0.1:43191/song.mp3",
+    "http://127.0.0.1:43191/list.m3u",
+    "http://127.0.0.1:43191/page.m3u"
+  ]
 }
