@@ -212,15 +212,22 @@ class FullscreenWindow(QWidget):
     ESC 退出全屏；底部浮动控制栏鼠标靠近底部时浮现、无操作自动隐藏。"""
 
     HIDE_DELAY = 3500
+    ESC 退出全屏；底部浮动控制栏鼠标靠近底部时浮现、无操作自动隐藏。"""
+
+    HIDE_DELAY = 3500
 
     def __init__(self, player):
         super().__init__()
         self.player = player
         self.setObjectName("fsRoot")
+        self.setObjectName("fsRoot")
         self.setWindowTitle("全屏播放")
         self.setWindowFlags(
             Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint
         )
+        self.setStyleSheet("#fsRoot { background: #000000; }")
+        self.setMouseTracking(True)
+
         self.setStyleSheet("#fsRoot { background: #000000; }")
         self.setMouseTracking(True)
 
@@ -354,7 +361,9 @@ class FullscreenWindow(QWidget):
             return
         if self.player.handle_global_key_press(event):
             self.show_controls()
+            self.show_controls()
             return
+        self.show_controls()
         self.show_controls()
         super().keyPressEvent(event)
 
@@ -367,11 +376,16 @@ class FullscreenWindow(QWidget):
         self.show_controls()
         super().mouseMoveEvent(event)
 
+    def mouseMoveEvent(self, event):
+        self.show_controls()
+        super().mouseMoveEvent(event)
+
     def mouseDoubleClickEvent(self, event):
         self.player.exit_fullscreen()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self._layout_overlay()
         self._layout_overlay()
         # 音频全屏：封面随窗口尺寸自适应居中显示
         if self.player is not None and not self.player.is_video:
@@ -1143,6 +1157,7 @@ class MediaPlayer(QMainWindow):
         fs = self.fullscreen_window
         if fs is not None:
             fs.on_exit_fullscreen()
+            fs.on_exit_fullscreen()
             fs.hide()
         if self.is_video:
             # 恢复绑定回普通窗口，播放不中断
@@ -1519,12 +1534,17 @@ class MediaPlayer(QMainWindow):
         if self.is_fullscreen and self.fullscreen_window is not None:
             self.fullscreen_window.sync_from_player()
 
+        if self.is_fullscreen and self.fullscreen_window is not None:
+            self.fullscreen_window.sync_from_player()
+
     def update_stream_status(self):
         """网络串流低频轮询：仅做轻量检查，避免高频调用 libvlc 卡 UI"""
         if not self.cur_media_path or not self.is_streaming:
             return
         # 网络流没有可靠进度；此处保持轻量，避免主线程阻塞。
         # 后续如需检测断流/缓冲状态，可在这里低频处理。
+        if self.is_fullscreen and self.fullscreen_window is not None:
+            self.fullscreen_window.sync_from_player()
         if self.is_fullscreen and self.fullscreen_window is not None:
             self.fullscreen_window.sync_from_player()
 
