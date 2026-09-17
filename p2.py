@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import json
+import html
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -92,6 +93,69 @@ def get_tag_text(tags, field):
     return None
 
 
+def get_embedded_lyrics(file_path):
+    """从音频文件元数据中读取内嵌歌词（LRC 文本）。
+
+    支持：MP3/ID3 的 USLT 帧、FLAC/OGG 的 VorbisComment（LYRICS 等）、
+    M4A/MP4 的 ©lyr。找不到时返回 None。
+    """
+    if not MutagenFile:
+        return None
+    try:
+        audio = MutagenFile(file_path)
+    except Exception:
+        return None
+    if not audio:
+        return None
+    tags = getattr(audio, "tags", None)
+    if not tags:
+        return None
+
+    def _first(value):
+        if isinstance(value, (list, tuple)):
+            return str(value[0]) if value else None
+        if isinstance(value, str):
+            return value
+        return None
+
+    # ID3（MP3）：USLT 帧的歌词文本在 .text
+    try:
+        keys = list(tags.keys())
+    except Exception:
+        keys = []
+    for k in keys:
+        if not (isinstance(k, str) and k.startswith("USLT")):
+            continue
+        try:
+            frame = tags[k]
+        except Exception:
+            continue
+        text = getattr(frame, "text", None)
+        got = _first(text) if text is not None else None
+        if got and got.strip():
+            return got
+    # VorbisComment（FLAC/OGG）
+    for key in ("LYRICS", "lyrics", "UNSYNCEDLYRICS", "UNSYNCED LYRICS",
+                "unsyncedlyrics"):
+        try:
+            if key in tags:
+                got = _first(tags[key])
+                if got and got.strip():
+                    return got
+        except Exception:
+            continue
+    # MP4 / M4A
+    for key in ("\xa9lyr", "LYR", "\xa9lyrics"):
+        try:
+            if key in tags:
+                got = _first(tags[key])
+                if got and got.strip():
+                    return got
+        except Exception:
+            continue
+    return None
+
+
 # 视频扩展名：本地文件与网络串流分开判定
 LOCAL_VIDEO_EXTS = (".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm", ".mpeg", ".mpg")
 STREAM_VIDEO_EXTS = LOCAL_VIDEO_EXTS + (".ts", ".m3u8")
@@ -142,6 +206,7 @@ class FullscreenControls(QWidget):
             "margin: -5px 0; border-radius: 6px; }"
             "#fsControls QSlider::sub-page:horizontal { background: #4da3ff; "
             "border-radius: 2px; }"
+            "#fsControls QCheckBox { color: #ffffff; background: transparent; }"
         )
 
         lay = QHBoxLayout(self)
@@ -161,6 +226,12 @@ class FullscreenControls(QWidget):
         self.cbx_speed = QComboBox()
         self.cbx_speed.addItems(["0.5x", "0.7x", "1.0x", "1.2x", "1.5x", "2.0x"])
         self.btn_loop = QPushButton("循环")
+        self.btn_lyrics = QPushButton("歌词")
+        self.btn_lyrics.setToolTip("显示/隐藏全屏歌词（全屏下按 L）")
+        self.btn_lyric_upload = QPushButton("上传歌词")
+        self.btn_lyric_upload.setToolTip("选择 .lrc 歌词文件")
+        self.cbx_lyrics = QCheckBox("内嵌歌词")
+        self.cbx_lyrics.setToolTip("从文件元数据读取内嵌歌词")
         self.btn_monitor = QPushButton("显示器")
         self.btn_monitor.setToolTip("选择全屏显示器（全屏下按 M）")
         self.btn_exit = QPushButton("退出全屏")
@@ -176,6 +247,9 @@ class FullscreenControls(QWidget):
         lay.addWidget(self.slider_vol)
         lay.addWidget(self.cbx_speed)
         lay.addWidget(self.btn_loop)
+        lay.addWidget(self.btn_lyrics)
+        lay.addWidget(self.btn_lyric_upload)
+        lay.addWidget(self.cbx_lyrics)
         lay.addWidget(self.btn_monitor)
         lay.addWidget(self.btn_exit)
 
@@ -185,9 +259,23 @@ class FullscreenControls(QWidget):
         self.slider_vol.valueChanged.connect(self.player.set_volume)
         self.cbx_speed.currentTextChanged.connect(self.player.set_play_speed)
         self.btn_loop.clicked.connect(self.player.toggle_loop)
+        self.btn_lyrics.clicked.connect(self.player.toggle_fullscreen_lyrics)
+        self.btn_lyric_upload.clicked.connect(self._upload_lyrics)
+        self.cbx_lyrics.toggled.connect(self.player.set_lyrics_meta_enabled)
         self.btn_monitor.clicked.connect(self.player.open_screen_chooser)
         self.btn_exit.clicked.connect(self.player.exit_fullscreen)
         self.refresh_monitor_button()
+
+    def _upload_lyrics(self):
+        """上传歌词：以全屏窗口为父窗口，避免文件对话框被全屏画面遮住"""
+        self.player.load_lrc_file(self.window())
+
+    def refresh_lyrics_state(self, meta_enabled, lyrics_visible):
+        """同步歌词按钮文字与“内嵌歌词”复选框状态"""
+        self.btn_lyrics.setText("歌词(开)" if lyrics_visible else "歌词")
+        self.cbx_lyrics.blockSignals(True)
+        self.cbx_lyrics.setChecked(bool(meta_enabled))
+        self.cbx_lyrics.blockSignals(False)
 
     def refresh_monitor_button(self):
         """更新“显示器”按钮可用状态与提示（点击会弹出选择窗口）"""
@@ -209,7 +297,7 @@ class FullscreenControls(QWidget):
 
 class FullscreenWindow(QWidget):
     """全屏展示窗口：视频由 VLC 直接渲染铺满屏幕；音频显示放大封面。
-    ESC 退出全屏；底部浮动控制栏鼠标靠近底部时浮现、无操作自动隐藏。"""
+    底部浮动控制栏鼠标靠近底部时浮现、无操作自动隐藏；支持全屏歌词。"""
 
     HIDE_DELAY = 3500
 
@@ -224,12 +312,28 @@ class FullscreenWindow(QWidget):
         self.setStyleSheet("#fsRoot { background: #000000; }")
         self.setMouseTracking(True)
 
+        # 歌词状态
+        self.lyric_lines = []
+        self.lyric_idx = -1
+        self.show_lyrics = True
+
         self.label = QLabel(self)
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setStyleSheet("background: #000000; color: #888888;")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.label)
+
+        # 歌词覆盖层：同样需要原生子窗口才能盖在 VLC 视频之上
+        self.lyric_label = QLabel(self)
+        self.lyric_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lyric_label.setWordWrap(True)
+        self.lyric_label.setAttribute(Qt.WidgetAttribute.WA_NativeWindow, True)
+        self.lyric_label.setStyleSheet(
+            "background: rgba(0, 0, 0, 170); color: #ffffff; "
+            "padding: 8px; border-radius: 8px;"
+        )
+        self.lyric_label.hide()
 
         # 浮动控制栏：原生子窗口，才能盖在 VLC 视频之上
         self.controls = FullscreenControls(player, self)
@@ -260,7 +364,17 @@ class FullscreenWindow(QWidget):
         h = self.controls.bar_height
         self.controls.setGeometry(0, max(0, self.height() - h), self.width(), h)
         self.hotzone.setGeometry(0, max(0, self.height() - 8), self.width(), 8)
+        # 歌词：水平居中，位于控制栏上方
+        lw = int(self.width() * 0.86)
+        lh = max(96, int(h * 2.2))
+        self.lyric_label.setGeometry(
+            max(0, (self.width() - lw) // 2),
+            max(0, self.height() - h - lh - 24),
+            lw,
+            lh,
+        )
         self.hotzone.raise_()
+        self.lyric_label.raise_()
         self.controls.raise_()
 
     def show_controls(self):
@@ -290,6 +404,10 @@ class FullscreenWindow(QWidget):
     def on_enter_fullscreen(self):
         self._layout_overlay()
         self.controls.refresh_monitor_button()
+        self.controls.refresh_lyrics_state(
+            self.player.lyrics_from_metadata,
+            bool(self.show_lyrics and self.lyric_lines),
+        )
         self.show_controls()
         self.sync_from_player()
 
@@ -336,6 +454,79 @@ class FullscreenWindow(QWidget):
             self._raise_tick += 1
             if self._raise_tick % 20 == 0:
                 self._layout_overlay()
+
+    # ---------- 歌词 ----------
+    def set_lyrics(self, lines):
+        """设置歌词行（外部加载后调用）"""
+        self.lyric_lines = list(lines or [])
+        self.lyric_idx = -1
+        if self.lyric_lines:
+            self.show_lyrics = True
+            self.update_lyrics(0, force=True)
+        else:
+            self.lyric_label.clear()
+        self._update_lyric_visibility()
+        if self.controls is not None:
+            self.controls.refresh_lyrics_state(
+                self.player.lyrics_from_metadata,
+                bool(self.show_lyrics and self.lyric_lines),
+            )
+
+    def clear_lyrics(self):
+        """清空全屏歌词显示"""
+        self.lyric_lines = []
+        self.lyric_idx = -1
+        self.lyric_label.clear()
+        self._update_lyric_visibility()
+
+    def update_lyrics(self, idx, force=False):
+        """根据当前歌词行号刷新显示（上一句/当前句/下一句）"""
+        if not self.lyric_lines:
+            return
+        if idx == self.lyric_idx and not force:
+            return
+        self.lyric_idx = idx
+        n = len(self.lyric_lines)
+        cur = self.lyric_lines[idx] if 0 <= idx < n else ""
+        prev = self.lyric_lines[idx - 1] if 1 <= idx < n else ""
+        nxt = self.lyric_lines[idx + 1] if 0 <= idx + 1 < n else ""
+        self.lyric_label.setText(self._lyric_html(prev, cur, nxt))
+        self._update_lyric_visibility()
+
+    @staticmethod
+    def _lyric_html(prev, cur, nxt):
+        esc = html.escape
+
+        def line(text, color, size, bold=False):
+            content = esc(text) if text else "&nbsp;"
+            weight = "bold" if bold else "normal"
+            return (
+                f"<div style='color:{color};font-size:{size}px;"
+                f"font-weight:{weight};'>{content}</div>"
+            )
+
+        return (
+            line(prev, "#bdbdbd", 15)
+            + line(cur, "#ffffff", 22, bold=True)
+            + line(nxt, "#bdbdbd", 15)
+        )
+
+    def _update_lyric_visibility(self):
+        visible = bool(self.show_lyrics and self.lyric_lines)
+        self.lyric_label.setVisible(visible)
+        if visible:
+            self._layout_overlay()
+
+    def toggle_lyrics(self):
+        """显示/隐藏全屏歌词"""
+        self.show_lyrics = not self.show_lyrics
+        self._update_lyric_visibility()
+        if self.controls is not None:
+            self.controls.refresh_lyrics_state(
+                self.player.lyrics_from_metadata,
+                bool(self.show_lyrics and self.lyric_lines),
+            )
+        self.show_controls()
 
     # ---------- 事件 ----------
     def eventFilter(self, obj, event):
@@ -410,6 +601,7 @@ class MediaPlayer(QMainWindow):
         self.lrc_lines = []
         self.lrc_time_list = []
         self.cur_lrc_idx = -1
+        self.lyrics_from_metadata = load_lyrics_meta_pref()
         self.cur_speed = 1.0
         self.loop_single = False
 
@@ -485,6 +677,7 @@ class MediaPlayer(QMainWindow):
         self.slider_vol.installEventFilter(self)
         self.btn_open.installEventFilter(self)
         self.btn_lyric.installEventFilter(self)
+        self.cbx_lyrics_meta.installEventFilter(self)
         self.btn_sub.installEventFilter(self)
         self.btn_play.installEventFilter(self)
         self.btn_stop.installEventFilter(self)
@@ -523,6 +716,10 @@ class MediaPlayer(QMainWindow):
         # 全屏下按 M 弹出“更改全屏显示器”窗口
         if key == Qt.Key.Key_M and self.is_fullscreen:
             self.open_screen_chooser()
+            return True
+        # 全屏下按 L 显示/隐藏歌词
+        if key == Qt.Key.Key_L and self.is_fullscreen:
+            self.toggle_fullscreen_lyrics()
             return True
 
         if self.is_streaming:
@@ -616,6 +813,9 @@ class MediaPlayer(QMainWindow):
         row1.setSpacing(8)
         self.btn_open = QPushButton("打开音视频")
         self.btn_lyric = QPushButton("上传LRC歌词")
+        self.cbx_lyrics_meta = QCheckBox("读取内嵌歌词")
+        self.cbx_lyrics_meta.setToolTip("勾选后优先从音频文件元数据中读取内嵌歌词")
+        self.cbx_lyrics_meta.setChecked(self.lyrics_from_metadata)
         self.btn_sub = QPushButton("加载SRT字幕")
         self.btn_play = QPushButton("播放/暂停")
         self.btn_stop = QPushButton("停止")
@@ -629,6 +829,7 @@ class MediaPlayer(QMainWindow):
 
         row1.addWidget(self.btn_open)
         row1.addWidget(self.btn_lyric)
+        row1.addWidget(self.cbx_lyrics_meta)
         row1.addWidget(self.btn_sub)
         row1.addWidget(self.btn_play)
         row1.addWidget(self.btn_stop)
@@ -654,7 +855,8 @@ class MediaPlayer(QMainWindow):
         row2.addWidget(self.btn_fullscreen)
 
         self.btn_open.clicked.connect(self.open_media)
-        self.btn_lyric.clicked.connect(self.load_lrc_file)
+        self.btn_lyric.clicked.connect(lambda: self.load_lrc_file())
+        self.cbx_lyrics_meta.toggled.connect(self.set_lyrics_meta_enabled)
         self.btn_sub.clicked.connect(self.load_subtitle)
         self.btn_play.clicked.connect(self.play_pause)
         self.btn_stop.clicked.connect(self.stop_play)
@@ -1039,6 +1241,8 @@ class MediaPlayer(QMainWindow):
         if self.fullscreen_window is None:
             self.fullscreen_window = FullscreenWindow(self)
         fs = self.fullscreen_window
+        if self.lrc_lines:
+            fs.set_lyrics(self.lrc_lines)
         self._place_fullscreen_on_screen(screen)
         # 先显示再绑定，确保全屏窗口的原生句柄有效
         fs.showFullScreen()
@@ -1178,14 +1382,104 @@ class MediaPlayer(QMainWindow):
         combined = sorted(zip(times, lyrics))
         self.lrc_time_list, self.lrc_lines = zip(*combined) if combined else ([], [])
 
-    def load_lrc_file(self):
-        path, _ = QFileDialog.getOpenFileName(self, "选择LRC歌词", "", "*.lrc")
-        if path:
-            with open(path, "r", encoding="utf-8") as f:
-                self.parse_lrc(f.read())
-            self.lrc_list.clear()
-            self.lrc_list.addItems(self.lrc_lines)
-            self.lrc_list.setVisible(True)
+    def set_lyrics(self, text):
+        """解析并应用歌词文本（列表 + 全屏覆盖层），成功返回 True"""
+        text = (text or "").strip()
+        if not text:
+            return False
+        self.parse_lrc(text)
+        if not self.lrc_lines:
+            return False
+        self.cur_lrc_idx = -1
+        self.lrc_list.clear()
+        self.lrc_list.addItems(self.lrc_lines)
+        self.lrc_list.setVisible(True)
+        if self.fullscreen_window is not None:
+            self.fullscreen_window.set_lyrics(self.lrc_lines)
+        return True
+
+    def clear_lyrics(self):
+        """清空当前歌词（列表与全屏）"""
+        self.lrc_time_list, self.lrc_lines = [], []
+        self.cur_lrc_idx = -1
+        self.lrc_list.clear()
+        self.lrc_list.setVisible(False)
+        if self.fullscreen_window is not None:
+            self.fullscreen_window.clear_lyrics()
+
+    def _read_text_file(self, path):
+        """尝试多种编码读取文本文件，失败返回 None"""
+        for enc in ("utf-8-sig", "utf-8", "gbk", "latin-1"):
+            try:
+                with open(path, "r", encoding=enc) as f:
+                    return f.read()
+            except Exception:
+                continue
+        return None
+
+    def try_load_lyrics_for(self, path):
+        """打开媒体时按用户偏好加载歌词：
+        勾选“读取内嵌歌词” → 优先读文件元数据，其次同目录同名 .lrc；
+        未勾选 → 只读同目录同名 .lrc。
+        """
+        self.clear_lyrics()
+        if self.is_video:
+            return
+        if self.lyrics_from_metadata:
+            try:
+                text = get_embedded_lyrics(path)
+            except Exception:
+                text = None
+            if text and self.set_lyrics(text):
+                return
+        media_dir = os.path.dirname(path)
+        media_name = os.path.splitext(os.path.basename(path))[0]
+        lrc_path = os.path.join(media_dir, f"{media_name}.lrc")
+        if os.path.exists(lrc_path):
+            text = self._read_text_file(lrc_path)
+            if text:
+                self.set_lyrics(text)
+
+    def load_lrc_file(self, parent=None):
+        """上传 .lrc 歌词文件（parent 可为全屏窗口，保证对话框在最上层）"""
+        path, _ = QFileDialog.getOpenFileName(
+            parent or self, "选择LRC歌词", "", "歌词文件 (*.lrc *.LRC)"
+        )
+        if not path:
+            return
+        text = self._read_text_file(path)
+        if not text:
+            QMessageBox.warning(self, "读取失败", "无法读取歌词文件（编码不支持或文件损坏）")
+            return
+        if not self.set_lyrics(text):
+            QMessageBox.information(self, "提示", "未在该文件中解析到歌词内容")
+
+    def toggle_fullscreen_lyrics(self):
+        """显示/隐藏全屏歌词"""
+        if self.fullscreen_window is not None:
+            self.fullscreen_window.toggle_lyrics()
+
+    def set_lyrics_meta_enabled(self, enabled):
+        """勾选/取消“从元数据读取内嵌歌词”，并即时生效"""
+        self.lyrics_from_metadata = bool(enabled)
+        save_lyrics_meta_pref(self.lyrics_from_metadata)
+        if hasattr(self, "cbx_lyrics_meta") and self.cbx_lyrics_meta.isChecked() != bool(enabled):
+            self.cbx_lyrics_meta.blockSignals(True)
+            self.cbx_lyrics_meta.setChecked(bool(enabled))
+            self.cbx_lyrics_meta.blockSignals(False)
+        if self.fullscreen_window is not None:
+            cbx = self.fullscreen_window.controls.cbx_lyrics
+            cbx.blockSignals(True)
+            cbx.setChecked(bool(enabled))
+            cbx.blockSignals(False)
+        # 勾选后立即为当前文件尝试读取内嵌歌词
+        if enabled and self.cur_media_path and not self.is_video:
+            try:
+                text = get_embedded_lyrics(self.cur_media_path)
+            except Exception:
+                text = None
+            if text:
+                self.set_lyrics(text)
 
     def read_audio_metadata(self, file_path):
         self.audio_metadata = {k: "--" for k in self.audio_metadata}
@@ -1407,8 +1701,7 @@ class MediaPlayer(QMainWindow):
         self.cur_media_path = url
         self.is_streaming = True
         self._set_stream_mode(True)
-        self.lrc_list.clear()
-        self.lrc_list.hide()
+        self.clear_lyrics()
 
         self.is_video = url.lower().endswith(STREAM_VIDEO_EXTS) or url.lower().startswith(("rtsp://", "rtmp://"))
 
@@ -1443,8 +1736,7 @@ class MediaPlayer(QMainWindow):
         self.is_streaming = False
         self._set_stream_mode(False)
         self.is_video = path.lower().endswith(LOCAL_VIDEO_EXTS)
-        self.lrc_list.clear()
-        self.lrc_list.hide()
+        self.clear_lyrics()
 
         self.read_audio_metadata(path)
         if self.is_video:
@@ -1461,17 +1753,7 @@ class MediaPlayer(QMainWindow):
         self.show_media_info(path)
 
         if not self.is_video:
-            media_dir = os.path.dirname(path)
-            media_name = os.path.splitext(os.path.basename(path))[0]
-            lrc_path = os.path.join(media_dir, f"{media_name}.lrc")
-            if os.path.exists(lrc_path):
-                try:
-                    with open(lrc_path, "r", encoding="utf-8") as f:
-                        self.parse_lrc(f.read())
-                    self.lrc_list.addItems(self.lrc_lines)
-                    self.lrc_list.setVisible(True)
-                except Exception:
-                    pass
+            self.try_load_lyrics_for(path)
 
     def play_pause(self):
         if self.media_player.is_playing():
@@ -1503,14 +1785,17 @@ class MediaPlayer(QMainWindow):
             self.slider_pos.setRange(0, total_ms)
             self.slider_pos.setValue(cur_ms)
 
-        if self.lrc_list.isVisible() and self.lrc_time_list:
+        if self.lrc_time_list:
             target = -1
             for i, t in enumerate(self.lrc_time_list):
                 if cur_ms >= t:
                     target = i
-            if target != -1 and target != self.cur_lrc_idx:
+            if target != self.cur_lrc_idx:
                 self.cur_lrc_idx = target
-                self.lrc_list.setCurrentRow(target)
+                if self.lrc_list.isVisible():
+                    self.lrc_list.setCurrentRow(target)
+                if self.fullscreen_window is not None:
+                    self.fullscreen_window.update_lyrics(target)
 
         if self.loop_single and total_ms > 0 and cur_ms >= total_ms - 100:
             self.media_player.set_time(0)
@@ -1534,8 +1819,7 @@ class MediaPlayer(QMainWindow):
         self.is_streaming = False
         self._set_stream_mode(False)
         self.is_video = path.lower().endswith(LOCAL_VIDEO_EXTS)
-        self.lrc_list.clear()
-        self.lrc_list.hide()
+        self.clear_lyrics()
         self.read_audio_metadata(path)
         if self.is_video:
             self.bind_video_window()
@@ -1549,6 +1833,8 @@ class MediaPlayer(QMainWindow):
         self.media_player.set_rate(self.cur_speed)
         self.apply_equalizer_to_player()
         self.show_media_info(path)
+        if not self.is_video:
+            self.try_load_lyrics_for(path)
 
 
 class EqualizerDialog(QDialog):
@@ -1886,6 +2172,19 @@ def save_fullscreen_screen(name):
     """记住用户选择的全屏显示器名称"""
     data = load_settings()
     data["fullscreen_screen"] = name
+    save_settings(data)
+
+
+def load_lyrics_meta_pref():
+    """是否优先从文件元数据读取内嵌歌词（默认 True）"""
+    val = load_settings().get("lyrics_from_metadata", True)
+    return val if isinstance(val, bool) else True
+
+
+def save_lyrics_meta_pref(enabled):
+    """保存“从元数据读取歌词”这一偏好"""
+    data = load_settings()
+    data["lyrics_from_metadata"] = bool(enabled)
     save_settings(data)
 
 
