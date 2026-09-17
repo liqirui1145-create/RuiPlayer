@@ -8,7 +8,16 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 from PyQt6.QtCore import QEvent, Qt, QTimer, QUrl
-from PyQt6.QtGui import QColor, QDesktopServices, QFont, QImage, QPainter, QPixmap
+from PyQt6.QtGui import (
+    QColor,
+    QDesktopServices,
+    QFont,
+    QImage,
+    QKeySequence,
+    QPainter,
+    QPixmap,
+    QShortcut,
+)
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PyQt6.QtWidgets import (
     QApplication,
@@ -17,6 +26,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QFileDialog,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -87,18 +97,133 @@ LOCAL_VIDEO_EXTS = (".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm", ".mpeg", ".
 STREAM_VIDEO_EXTS = LOCAL_VIDEO_EXTS + (".ts", ".m3u8")
 
 
+def format_time_ms(ms):
+    """把毫秒格式化为 mm:ss"""
+    try:
+        ms = int(ms)
+    except (TypeError, ValueError):
+        ms = 0
+    if ms < 0:
+        ms = 0
+    total_s = ms // 1000
+    return f"{total_s // 60:02d}:{total_s % 60:02d}"
+
+
+class FullscreenControls(QWidget):
+    """全屏浮动控制栏：叠加在画面之上，一段时间无操作自动隐藏。
+
+    作为原生子窗口（WA_NativeWindow）创建，才能在 Linux/Windows 上都盖在
+    VLC 嵌入的视频子窗口之上。
+    """
+
+    def __init__(self, player, parent):
+        super().__init__(parent)
+        self.player = player
+        self.setObjectName("fsControls")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+        scale = getattr(player, "ui_scale", 1.0)
+        font_px = max(12, int(round(13 * scale)))
+        self.bar_height = max(48, int(round(52 * scale)))
+        self.setStyleSheet(
+            f"#fsControls {{ background: #1b1b1b; border-top: 1px solid #3a3a3a; "
+            f"font-size: {font_px}px; }}"
+            "#fsControls QLabel { color: #ffffff; background: transparent; }"
+            "#fsControls QPushButton { color: #ffffff; background: #2d2d2d; "
+            "border: 1px solid #4a4a4a; border-radius: 4px; padding: 4px 10px; }"
+            "#fsControls QPushButton:hover { background: #3d3d3d; }"
+            "#fsControls QComboBox { color: #ffffff; background: #2d2d2d; "
+            "border: 1px solid #4a4a4a; border-radius: 4px; padding: 2px 6px; }"
+            "#fsControls QComboBox QAbstractItemView { color: #ffffff; "
+            "background: #2d2d2d; selection-background-color: #4da3ff; }"
+            "#fsControls QSlider::groove:horizontal { height: 4px; background: #555555; "
+            "border-radius: 2px; }"
+            "#fsControls QSlider::handle:horizontal { background: #4da3ff; width: 12px; "
+            "margin: -5px 0; border-radius: 6px; }"
+            "#fsControls QSlider::sub-page:horizontal { background: #4da3ff; "
+            "border-radius: 2px; }"
+        )
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(12, 6, 12, 6)
+        lay.setSpacing(8)
+
+        self.btn_play = QPushButton("播放")
+        self.btn_stop = QPushButton("停止")
+        self.lbl_cur = QLabel("00:00")
+        self.slider_pos = QSlider(Qt.Orientation.Horizontal)
+        self.slider_pos.setRange(0, 0)
+        self.lbl_total = QLabel("00:00")
+        self.lbl_vol = QLabel("音量")
+        self.slider_vol = QSlider(Qt.Orientation.Horizontal)
+        self.slider_vol.setRange(0, 100)
+        self.slider_vol.setFixedWidth(max(80, int(round(100 * scale))))
+        self.cbx_speed = QComboBox()
+        self.cbx_speed.addItems(["0.5x", "0.7x", "1.0x", "1.2x", "1.5x", "2.0x"])
+        self.btn_loop = QPushButton("循环")
+        self.btn_monitor = QPushButton("显示器")
+        self.btn_monitor.setToolTip("选择全屏显示器（全屏下按 M）")
+        self.btn_exit = QPushButton("退出全屏")
+        self.btn_exit.setToolTip("退出全屏（ESC）")
+        self.btn_play.setToolTip("播放/暂停（空格）")
+
+        lay.addWidget(self.btn_play)
+        lay.addWidget(self.btn_stop)
+        lay.addWidget(self.lbl_cur)
+        lay.addWidget(self.slider_pos, stretch=1)
+        lay.addWidget(self.lbl_total)
+        lay.addWidget(self.lbl_vol)
+        lay.addWidget(self.slider_vol)
+        lay.addWidget(self.cbx_speed)
+        lay.addWidget(self.btn_loop)
+        lay.addWidget(self.btn_monitor)
+        lay.addWidget(self.btn_exit)
+
+        self.btn_play.clicked.connect(self.player.play_pause)
+        self.btn_stop.clicked.connect(self._stop)
+        self.slider_pos.sliderMoved.connect(self.player.seek_pos)
+        self.slider_vol.valueChanged.connect(self.player.set_volume)
+        self.cbx_speed.currentTextChanged.connect(self.player.set_play_speed)
+        self.btn_loop.clicked.connect(self.player.toggle_loop)
+        self.btn_monitor.clicked.connect(self.player.open_screen_chooser)
+        self.btn_exit.clicked.connect(self.player.exit_fullscreen)
+        self.refresh_monitor_button()
+
+    def refresh_monitor_button(self):
+        """更新“显示器”按钮可用状态与提示（点击会弹出选择窗口）"""
+        try:
+            count = len(QApplication.screens())
+        except Exception:
+            count = 0
+        self.btn_monitor.setEnabled(count > 0)
+        self.btn_monitor.setToolTip(
+            f"选择全屏显示器（共 {count} 个，全屏下按 M）" if count else "未检测到显示器"
+        )
+
+    def _stop(self):
+        """控制栏内停止：只停止播放，不退出全屏"""
+        self.player.media_player.stop()
+        self.player.slider_pos.setValue(0)
+        self.slider_pos.setValue(0)
+
+
 class FullscreenWindow(QWidget):
     """全屏展示窗口：视频由 VLC 直接渲染铺满屏幕；音频显示放大封面。
-    按 ESC 或双击退出全屏。"""
+    ESC 退出全屏；底部浮动控制栏鼠标靠近底部时浮现、无操作自动隐藏。"""
+
+    HIDE_DELAY = 3500
 
     def __init__(self, player):
         super().__init__()
         self.player = player
+        self.setObjectName("fsRoot")
         self.setWindowTitle("全屏播放")
         self.setWindowFlags(
             Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint
         )
-        self.setStyleSheet("background: #000000;")
+        self.setStyleSheet("#fsRoot { background: #000000; }")
+        self.setMouseTracking(True)
+
         self.label = QLabel(self)
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setStyleSheet("background: #000000; color: #888888;")
@@ -106,13 +231,131 @@ class FullscreenWindow(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.label)
 
+        # 浮动控制栏：原生子窗口，才能盖在 VLC 视频之上
+        self.controls = FullscreenControls(player, self)
+        self.controls.setAttribute(Qt.WidgetAttribute.WA_NativeWindow, True)
+
+        # 底部热区：控制栏隐藏后，鼠标移到底部即可召唤出来
+        self.hotzone = QWidget(self)
+        self.hotzone.setAttribute(Qt.WidgetAttribute.WA_NativeWindow, True)
+        self.hotzone.setMouseTracking(True)
+        self.hotzone.setStyleSheet("background: #000000;")
+        self.hotzone.installEventFilter(self)
+        self.hotzone.setToolTip("移动鼠标到此处显示控制栏")
+
+        self.hide_timer = QTimer(self)
+        self.hide_timer.setSingleShot(True)
+        self.hide_timer.setInterval(self.HIDE_DELAY)
+        self.hide_timer.timeout.connect(self._auto_hide)
+
+        self._raise_tick = 0
+
+        # M 键：打开“更改全屏显示器”窗口（用快捷键，避免视频子窗口抢走键盘焦点）
+        self.shortcut_monitor = QShortcut(QKeySequence("M"), self)
+        self.shortcut_monitor.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.shortcut_monitor.activated.connect(self.player.open_screen_chooser)
+
+    # ---------- 覆盖层布局与显隐 ----------
+    def _layout_overlay(self):
+        h = self.controls.bar_height
+        self.controls.setGeometry(0, max(0, self.height() - h), self.width(), h)
+        self.hotzone.setGeometry(0, max(0, self.height() - 8), self.width(), 8)
+        self.hotzone.raise_()
+        self.controls.raise_()
+
+    def show_controls(self):
+        self.controls.show()
+        self._layout_overlay()
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.label.setCursor(Qt.CursorShape.ArrowCursor)
+        self._restart_hide_timer()
+
+    def hide_controls(self):
+        self.controls.hide()
+        self.setCursor(Qt.CursorShape.BlankCursor)
+        self.label.setCursor(Qt.CursorShape.BlankCursor)
+
+    def _restart_hide_timer(self):
+        self.hide_timer.start()
+
+    def _auto_hide(self):
+        # 暂停/停止时保持显示，播放中才自动隐藏
+        try:
+            playing = self.player.media_player.is_playing()
+        except Exception:
+            playing = False
+        if playing:
+            self.hide_controls()
+
+    def on_enter_fullscreen(self):
+        self._layout_overlay()
+        self.controls.refresh_monitor_button()
+        self.show_controls()
+        self.sync_from_player()
+
+    def on_exit_fullscreen(self):
+        self.hide_timer.stop()
+        self.controls.hide()
+
+    # ---------- 状态同步 ----------
+    def sync_from_player(self):
+        if not self.isVisible():
+            return
+        p = self.player
+        c = self.controls
+        try:
+            playing = p.media_player.is_playing()
+        except Exception:
+            playing = False
+        c.btn_play.setText("暂停" if playing else "播放")
+        c.btn_loop.setText("循环(开)" if p.loop_single else "循环")
+
+        vol = p.media_player.audio_get_volume()
+        if vol is not None and vol >= 0:
+            c.slider_vol.blockSignals(True)
+            c.slider_vol.setValue(int(vol))
+            c.slider_vol.blockSignals(False)
+
+        c.cbx_speed.blockSignals(True)
+        idx = c.cbx_speed.findText(f"{p.cur_speed:.1f}x")
+        if idx >= 0:
+            c.cbx_speed.setCurrentIndex(idx)
+        c.cbx_speed.blockSignals(False)
+
+        if not p.is_streaming and not c.slider_pos.isSliderDown():
+            total = p.media_player.get_length()
+            cur = p.media_player.get_time()
+            if total and total > 0:
+                c.slider_pos.setRange(0, total)
+                c.slider_pos.setValue(max(0, cur))
+                c.lbl_total.setText(format_time_ms(total))
+            c.lbl_cur.setText(format_time_ms(cur))
+
+        # VLC 新建视频输出时可能压住控制栏，低频重新置顶
+        if c.isVisible():
+            self._raise_tick += 1
+            if self._raise_tick % 20 == 0:
+                self._layout_overlay()
+
+    # ---------- 事件 ----------
+    def eventFilter(self, obj, event):
+        if obj is self.hotzone and self.isVisible():
+            if event.type() == QEvent.Type.Enter:
+                self.show_controls()
+            elif event.type() == QEvent.Type.MouseButtonDblClick:
+                self.player.exit_fullscreen()
+            return False
+        return super().eventFilter(obj, event)
+
     def keyPressEvent(self, event):
         # ESC 退出全屏；其余按键转发给播放器（空格暂停/方向键等仍可用）
         if event.key() == Qt.Key.Key_Escape:
             self.player.exit_fullscreen()
             return
         if self.player.handle_global_key_press(event):
+            self.show_controls()
             return
+        self.show_controls()
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
@@ -120,11 +363,16 @@ class FullscreenWindow(QWidget):
             return
         super().keyReleaseEvent(event)
 
+    def mouseMoveEvent(self, event):
+        self.show_controls()
+        super().mouseMoveEvent(event)
+
     def mouseDoubleClickEvent(self, event):
         self.player.exit_fullscreen()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self._layout_overlay()
         # 音频全屏：封面随窗口尺寸自适应居中显示
         if self.player is not None and not self.player.is_video:
             self.player.update_fullscreen_art()
@@ -271,6 +519,10 @@ class MediaPlayer(QMainWindow):
         if key == Qt.Key.Key_Escape:
             if self.is_fullscreen:
                 self.exit_fullscreen()
+            return True
+        # 全屏下按 M 弹出“更改全屏显示器”窗口
+        if key == Qt.Key.Key_M and self.is_fullscreen:
+            self.open_screen_chooser()
             return True
 
         if self.is_streaming:
@@ -727,20 +979,71 @@ class MediaPlayer(QMainWindow):
         else:
             self.enter_fullscreen()
 
-    def enter_fullscreen(self):
-        if self.is_fullscreen:
-            return
-        self.is_fullscreen = True
+    def _screen_display_name(self, screen):
+        """显示器在下拉框里的显示文案"""
+        name = screen.name() or "显示器"
+        geo = screen.geometry()
+        suffix = "（主屏）" if screen is QApplication.primaryScreen() else ""
+        return f"{name}  {geo.width()}×{geo.height()}{suffix}"
 
+    def choose_fullscreen_screen(self):
+        """确定全屏使用哪块屏幕：
+        - 单显示器：直接使用，不打扰；
+        - 多显示器且已有保存的偏好：沿用（偏好屏幕不存在时重新询问）；
+        - 多显示器首次：弹窗让用户选择并记住，之后自动沿用。
+        """
+        screens = QApplication.screens()
+        if not screens:
+            return None
+        if len(screens) == 1:
+            return screens[0]
+
+        saved = load_fullscreen_screen()
+        if saved:
+            for s in screens:
+                if s.name() == saved:
+                    return s
+
+        names = [self._screen_display_name(s) for s in screens]
+        current = self.screen() or QApplication.primaryScreen()
+        default_idx = screens.index(current) if current in screens else 0
+        choice, ok = QInputDialog.getItem(
+            self,
+            "选择全屏显示器",
+            "检测到多个显示器，请选择全屏显示在哪块屏幕\n（选择会被记住，下次自动沿用）：",
+            names,
+            default_idx,
+            False,
+        )
+        chosen = screens[names.index(choice)] if (ok and choice in names) else (current or screens[0])
+        if chosen is not None:
+            save_fullscreen_screen(chosen.name())
+        return chosen
+
+    def _place_fullscreen_on_screen(self, screen):
+        """把全屏窗口定位到指定显示器（只定位，不负责显示）。
+
+        只把窗口几何设为目标屏幕的完整区域；不再调用 windowHandle().setScreen()，
+        以避免对已全屏的原生窗口设置屏幕时在某些平台触发崩溃（SIGABRT）。
+        """
+        fs = self.fullscreen_window
+        if screen is None or fs is None:
+            return
+        try:
+            fs.setGeometry(screen.geometry())
+        except Exception:
+            pass
+
+    def _open_fullscreen_window(self, screen):
+        """在指定屏幕创建/显示全屏窗口，并绑定画面、显示控制栏"""
         if self.fullscreen_window is None:
             self.fullscreen_window = FullscreenWindow(self)
         fs = self.fullscreen_window
-
+        self._place_fullscreen_on_screen(screen)
         # 先显示再绑定，确保全屏窗口的原生句柄有效
         fs.showFullScreen()
-
         if self.is_video:
-            # 视频：黑底 + VLC 重绑到全屏窗口，实现画面铺满
+            # 视频：VLC 重绑到全屏窗口，实现画面铺满
             fs.label.show()
             self._set_video_window(fs.label)
         else:
@@ -749,6 +1052,70 @@ class MediaPlayer(QMainWindow):
         fs.raise_()
         fs.activateWindow()
         fs.setFocus()
+        fs.on_enter_fullscreen()
+
+    def move_fullscreen_to(self, screen):
+        """切换到另一块显示器：在新屏幕上重建全屏窗口（保持播放）"""
+        if not self.is_fullscreen or screen is None:
+            return
+        old = self.fullscreen_window
+        if old is not None:
+            old.on_exit_fullscreen()
+            old.hide()
+            old.deleteLater()
+            self.fullscreen_window = None
+        self._open_fullscreen_window(screen)
+
+    def open_screen_chooser(self):
+        """弹出“更改全屏显示器”窗口，选择后立即应用并记住。"""
+        screens = QApplication.screens()
+        if not screens:
+            return
+        names = [self._screen_display_name(s) for s in screens]
+
+        # 默认项：优先当前全屏所在屏幕，其次已保存偏好，再次主窗口所在屏幕
+        current = None
+        if self.is_fullscreen and self.fullscreen_window is not None:
+            current = self.fullscreen_window.screen()
+        saved = load_fullscreen_screen()
+        default_idx = 0
+        for i, s in enumerate(screens):
+            if (current is not None and s is current) or (saved and s.name() == saved):
+                default_idx = i
+                break
+
+        # 全屏时以全屏窗口为父对象，保证弹窗处在最上层、不被全屏画面遮住
+        parent = (
+            self.fullscreen_window
+            if self.is_fullscreen and self.fullscreen_window is not None
+            else self
+        )
+        prompt = (
+            "检测到多个显示器，请选择全屏显示在哪块屏幕："
+            if len(screens) > 1
+            else "当前仅检测到一个显示器："
+        )
+        choice, ok = QInputDialog.getItem(
+            parent, "更改全屏显示器", prompt, names, default_idx, False
+        )
+        if not ok or choice not in names:
+            return
+
+        target = screens[names.index(choice)]
+        save_fullscreen_screen(target.name())
+        if self.is_fullscreen and self.fullscreen_window is not None:
+            self.move_fullscreen_to(target)
+        if self.fullscreen_window is not None:
+            self.fullscreen_window.controls.refresh_monitor_button()
+
+    def enter_fullscreen(self):
+        if self.is_fullscreen:
+            return
+        self.is_fullscreen = True
+
+        # 多显示器：先确定目标屏幕（首次询问并记住）
+        screen = self.choose_fullscreen_screen()
+        self._open_fullscreen_window(screen)
 
     def update_fullscreen_art(self):
         """全屏（音频）时按当前封面刷新画面，避免变形并随窗口尺寸自适应"""
@@ -775,6 +1142,7 @@ class MediaPlayer(QMainWindow):
         self.is_fullscreen = False
         fs = self.fullscreen_window
         if fs is not None:
+            fs.on_exit_fullscreen()
             fs.hide()
         if self.is_video:
             # 恢复绑定回普通窗口，播放不中断
@@ -1148,12 +1516,17 @@ class MediaPlayer(QMainWindow):
             self.media_player.set_time(0)
             self.media_player.play()
 
+        if self.is_fullscreen and self.fullscreen_window is not None:
+            self.fullscreen_window.sync_from_player()
+
     def update_stream_status(self):
         """网络串流低频轮询：仅做轻量检查，避免高频调用 libvlc 卡 UI"""
         if not self.cur_media_path or not self.is_streaming:
             return
         # 网络流没有可靠进度；此处保持轻量，避免主线程阻塞。
         # 后续如需检测断流/缓冲状态，可在这里低频处理。
+        if self.is_fullscreen and self.fullscreen_window is not None:
+            self.fullscreen_window.sync_from_player()
 
     def open_media_from_path(self, path):
         self.close_fullscreen_on_media_change()
@@ -1468,24 +1841,52 @@ def get_equalizer_preset_values(preset_name):
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "ui_settings.json")
 
 
-def load_ui_scale():
-    """读取保存的界面缩放比例，非法/缺失时返回 1.0"""
+def load_settings():
+    """读取 ui_settings.json（失败/非法时返回空字典）"""
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-        scale = float(data.get("ui_scale", 1.0))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_settings(data):
+    """写入 ui_settings.json"""
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def load_ui_scale():
+    """读取保存的界面缩放比例，非法/缺失时返回 1.0"""
+    try:
+        scale = float(load_settings().get("ui_scale", 1.0))
         return 0.5 if scale < 0.5 else 2.0 if scale > 2.0 else scale
     except Exception:
         return 1.0
 
 
 def save_ui_scale(scale):
-    """保存界面缩放比例"""
-    try:
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-            json.dump({"ui_scale": round(scale, 2)}, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+    """保存界面缩放比例（保留其它设置项）"""
+    data = load_settings()
+    data["ui_scale"] = round(scale, 2)
+    save_settings(data)
+
+
+def load_fullscreen_screen():
+    """读取用户偏好的全屏显示器名称（未设置返回 None）"""
+    name = load_settings().get("fullscreen_screen")
+    return name if isinstance(name, str) and name else None
+
+
+def save_fullscreen_screen(name):
+    """记住用户选择的全屏显示器名称"""
+    data = load_settings()
+    data["fullscreen_screen"] = name
+    save_settings(data)
 
 
 if __name__ == "__main__":
