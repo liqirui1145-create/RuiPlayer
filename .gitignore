@@ -10,6 +10,12 @@ __pycache__/
 # 运行时生成的配置
 ui_settings.json
 
+# Telegram 音乐抓取：会话凭证 / 配置 / 下载目录
+*.session
+*.session-journal
+tg_music.json
+music/
+
 # 打包产物
 build/
 dist/

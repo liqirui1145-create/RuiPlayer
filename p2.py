@@ -44,6 +44,12 @@ from PyQt6.QtWidgets import (
 from PIL import Image
 
 try:
+    from tg_music import HAS_TELETHON, TelegramMusicDialog
+except Exception:  # 缺少 telethon 时程序仍可正常运行
+    HAS_TELETHON = False
+    TelegramMusicDialog = None
+
+try:
     import vlc
 except Exception:
     print("错误：请安装 VLC 播放器，执行 pip install python-vlc")
@@ -662,6 +668,7 @@ class MediaPlayer(QMainWindow):
 
         self.network_manager = QNetworkAccessManager(self)
         self.channel_dialog = None
+        self.tg_dialog = None
 
         # 全屏播放状态（视频画面 / 音频封面铺满屏幕，ESC 退出）
         self.is_fullscreen = False
@@ -962,6 +969,11 @@ class MediaPlayer(QMainWindow):
         self.btn_m3u.setToolTip("选择本地M3U/M3U8播放列表，列出电视台点台播放")
         self.btn_m3u.clicked.connect(self.load_m3u_file)
         ts_layout.addWidget(self.btn_m3u)
+
+        self.btn_tg = QPushButton("Telegram 音乐")
+        self.btn_tg.setToolTip("登录 Telegram，抓取群组/频道音乐并生成播放列表（需 pip install telethon）")
+        self.btn_tg.clicked.connect(self.open_telegram_music_dialog)
+        ts_layout.addWidget(self.btn_tg)
 
         ts_layout.addStretch()
 
@@ -1802,6 +1814,20 @@ class MediaPlayer(QMainWindow):
         self.channel_dialog.show()
         self.channel_dialog.raise_()
         self.channel_dialog.activateWindow()
+
+    def open_telegram_music_dialog(self):
+        """打开 Telegram 群组/频道音乐抓取窗口"""
+        if TelegramMusicDialog is None:
+            QMessageBox.warning(
+                self, "缺少依赖",
+                "未安装 telethon。请先执行：pip install telethon",
+            )
+            return
+        if self.tg_dialog is None:
+            self.tg_dialog = TelegramMusicDialog(self)
+        self.tg_dialog.show()
+        self.tg_dialog.raise_()
+        self.tg_dialog.activateWindow()
 
     def parse_m3u_file(self, path):
         """读取本地 M3U/M3U8 文件并解析频道列表（相对路径基于文件所在目录）"""
