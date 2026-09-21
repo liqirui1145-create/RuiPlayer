@@ -22,7 +22,11 @@
       "title": null,
       "artist": null,
       "album": null,
+<<<<<<< HEAD
       "duration": 0
+=======
+      "duration": null
+>>>>>>> ab99371 (feat: 音乐库文件夹扫描与 SHA256 内容去重)
     },
     {
       "path": "/home/liqirui6636/.config/QQ/versions/3.2.33-52892/resource/msg.wav",
@@ -42,7 +46,11 @@
       "title": null,
       "artist": null,
       "album": null,
+<<<<<<< HEAD
       "duration": 0
+=======
+      "duration": null
+>>>>>>> ab99371 (feat: 音乐库文件夹扫描与 SHA256 内容去重)
     },
     {
       "path": "/home/liqirui6636/.config/QQ/versions/3.2.33-52892/resource/ringtone-callee.mp3",
@@ -1763,6 +1771,19 @@
       "artist": null,
       "album": null,
       "duration": 256
+<<<<<<< HEAD
+=======
+    },
+    {
+      "path": "/home/liqirui6636/.var/app/com.dingtalk.DingTalk/config/DingTalk/4d0dfcda82f8860a6043_v3/AudioFiles/lR_PJxQ6gslrMgcAALBhnsFEKQyGvgpRpTE6ZI4A.ogg",
+      "sha256": "22d37e8f2a175f8a98158576124fef467309e5e319277d01ea29bbb3abe0b7b5",
+      "size": 24750,
+      "mtime": 1790174285,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+>>>>>>> ab99371 (feat: 音乐库文件夹扫描与 SHA256 内容去重)
     }
   ],
   "min_audio_duration": 15

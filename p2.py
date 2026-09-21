@@ -1380,8 +1380,14 @@ class MediaPlayer(QMainWindow):
             self.show_default_cover()
 
     def open_file_folder(self):
-        if self.cur_media_path and os.path.exists(self.cur_media_path):
-            os.startfile(os.path.dirname(self.cur_media_path))
+        """在系统文件管理器中打开当前文件所在目录（跨平台）"""
+        if not self.cur_media_path or not os.path.exists(self.cur_media_path):
+            return
+        folder = os.path.dirname(self.cur_media_path)
+        if sys.platform.startswith("win"):
+            os.startfile(folder)  # type: ignore[attr-defined]  # 仅 Windows 提供
+        else:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
 
     def delete_current_media(self):
         self.close_fullscreen_on_media_change()
@@ -3441,7 +3447,7 @@ def get_equalizer_preset_values(preset_name):
     return presets.get(preset_name, presets["平直"])[:]
 
 
-SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "ui_settings.json")
+SETTINGS_FILE = app_paths.writable_path("ui_settings.json")
 
 
 def load_settings():

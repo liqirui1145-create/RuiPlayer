@@ -55,9 +55,21 @@ except Exception:  # pragma: no cover - 缺少依赖时程序仍可运行
 # 轻量工具函数（可独立测试，不依赖网络/Telethon）
 # --------------------------------------------------------------------------
 _DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE = os.path.join(_DIR, "tg_music.json")
-SESSION_FILE = os.path.join(_DIR, "tg_music.session")
-DEFAULT_OUT_DIR = os.path.join(_DIR, "music")
+
+try:
+    from app_paths import media_out_dir, writable_path
+except Exception:  # 单文件运行等极端情况：回退到程序目录
+    def writable_path(name):
+        return os.path.join(_DIR, name)
+
+    def media_out_dir():
+        return os.path.join(_DIR, "music")
+
+
+# 配置与会话写入用户目录（安装到 /usr/share 后程序目录只读）
+CONFIG_FILE = writable_path("tg_music.json")
+SESSION_FILE = writable_path("tg_music.session")
+DEFAULT_OUT_DIR = media_out_dir()
 
 # 推荐把凭据放到用户/系统环境变量里，避免写进项目目录
 ENV_API_ID = "TG_API_ID"
