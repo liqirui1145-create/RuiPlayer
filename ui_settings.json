@@ -13,6 +13,1757 @@
   "music_folders": [
     "/home/liqirui6636"
   ],
-  "music_library": [],
+  "music_library": [
+    {
+      "path": "/home/liqirui6636/.config/QQ/versions/3.2.33-52892/resource/countdown.mp3",
+      "sha256": "f485620697a74e148394b563f40d85b99f175b272fa05121a7f7af0e79cc08f4",
+      "size": 2163,
+      "mtime": 1788586187,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 0
+    },
+    {
+      "path": "/home/liqirui6636/.config/QQ/versions/3.2.33-52892/resource/msg.wav",
+      "sha256": "e4e4d52dbdd11a830cea271bce7be7c12e023b1d8a4400c73946eb295300f73f",
+      "size": 156628,
+      "mtime": 1788586188,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+    },
+    {
+      "path": "/home/liqirui6636/.config/QQ/versions/3.2.33-52892/resource/ringtone-accept.mp3",
+      "sha256": "d999bd9d465c6ee9da7e9f87a742a1eaa25826313957c05541f6ece46a9ef840",
+      "size": 3118,
+      "mtime": 1788586188,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 0
+    },
+    {
+      "path": "/home/liqirui6636/.config/QQ/versions/3.2.33-52892/resource/ringtone-callee.mp3",
+      "sha256": "db922d4f9a0d63c3f0f950b984c0a5817c608636a9c4c1787793f3f6d6fbc228",
+      "size": 29647,
+      "mtime": 1788586188,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 29
+    },
+    {
+      "path": "/home/liqirui6636/.config/QQ/versions/3.2.33-52892/resource/system.wav",
+      "sha256": "e899407b921047a290adb22134488732d283bcf7ecf6d39910a06cb47bfd79f4",
+      "size": 6947,
+      "mtime": 1788586188,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/《中华人民共和国国歌》官方录音版本（管乐合唱版）.wav",
+      "sha256": "65b9e355dee26049943e29129e9800d86ef3b807f104dfd7f38f06ad9ee88a30",
+      "size": 14349322,
+      "mtime": 1720577744,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/《中华人民共和国国歌》官方录音版本（管乐版）.wav",
+      "sha256": "fc72269bca0bde2af4b44bf886160793b385e70c3447ff18faa7cd62269cc628",
+      "size": 14240404,
+      "mtime": 1724933904,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/《中华人民共和国国歌》官方录音版本（管弦乐合唱版）.wav",
+      "sha256": "0044530093ca640f5da828944710d20d5edbc61c153fe9b22f0ba63e81a4ac14",
+      "size": 14318892,
+      "mtime": 1724933910,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/《中华人民共和国国歌》官方录音版本（管弦乐版）.wav",
+      "sha256": "c660a3e79b67a9dbe87ac50fb37e5131a5f106741963fcd9cfb8039b3c9e3ee2",
+      "size": 14246146,
+      "mtime": 1720577724,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/飘向北方 (Live) - 那吾克热-NW&尤长靖 (2).flac",
+      "sha256": "c82f2b1e8a6d3801b1801e99bacc7e115b3a1ec03771dd1cb21a08947164410c",
+      "size": 33938930,
+      "mtime": 1789727416,
+      "title": "飘向北方 (Live)",
+      "artist": "那吾克热-NW&尤长靖",
+      "album": "乐人+LIVE：2018那吾克热N·征途·W MUSAPE演唱会（Live）",
+      "duration": 303
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/飘向北方 (Live) - 那吾克热-NW&尤长靖.flac",
+      "sha256": "1052df5cfb7dcea1d35fa79895c1e35cf158cd92af54b65bce613ccdbcfcb5e1",
+      "size": 18874368,
+      "mtime": 1789726909,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/RuiPlayer_telegram/music/少年中国说 - 张杰.mp3",
+      "sha256": "7b08133766ffce1c54b60d44f68a0ad017abf6b84329fbf0120b8bb451c99918",
+      "size": 8159010,
+      "mtime": 1789726868,
+      "title": "少年中国说",
+      "artist": "张杰",
+      "album": "少年中国说",
+      "duration": 201
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/RuiPlayer_telegram/music/张明敏 - 我的中国心.flac",
+      "sha256": "2cf021d08bf67f6fca3b4c7706950cdefd7b674437f4e1b965e4cb60a190ca8e",
+      "size": 20857483,
+      "mtime": 1789726772,
+      "title": "我的中国心",
+      "artist": "张明敏",
+      "album": "民族歌曲献中华",
+      "duration": 190
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/RuiPlayer_telegram/music/弱水三千 (0.7xDJ版)-DJ赵允哲 DJ Wave.flac",
+      "sha256": "c31fc06d6f8c71206db7248e2889d7ceac21f84a5691f4cfc9197879fd9f95c2",
+      "size": 11927552,
+      "mtime": 1789727123,
+      "title": "弱水三千 (0.7xDJ版)",
+      "artist": "DJ赵允哲 DJ Wave",
+      "album": null,
+      "duration": 213
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/RuiPlayer_telegram/music/李丽芬-爱江山更爱美人.flac",
+      "sha256": "aca60d5dc767e1e7cea2497488239bbe9387eb5b92f2788d45272688a3fa60f4",
+      "size": 35940814,
+      "mtime": 1789727046,
+      "title": "爱江山更爱美人",
+      "artist": "李丽芬",
+      "album": "就这样约定",
+      "duration": 319
+    },
+    {
+      "path": "/home/liqirui6636/.local/share/Trash/files/music/零点乐队 - 相信自己.flac",
+      "sha256": "ab5e50ad1e97a69a09db83c8eb2d21c6584d5d7b084972e03ddda2e056e30124",
+      "size": 28400488,
+      "mtime": 1789750289,
+      "title": "相信自己",
+      "artist": "零点乐队",
+      "album": "没有什么不可以",
+      "duration": 213
+    },
+    {
+      "path": "/home/liqirui6636/.var/app/com.dingtalk.DingTalk/config/DingTalk/4d0dfcda82f8860a6043_v3/AudioFiles/lR_PKHl0M_yb4-sAALCIQUygRxJIOwpd8wVf1CEA.ogg",
+      "sha256": "0cb81eb909a56187b7d05459a5c44fa84ef8e227f8a33234ce2a26454f52c529",
+      "size": 32099,
+      "mtime": 1787980380,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+    },
+    {
+      "path": "/home/liqirui6636/snap/telegram-desktop/7146/.local/share/TelegramDesktop/tdata/audio_cache/TD_Default.wav",
+      "sha256": "11d04b17b2eb926620684cd9fe2d2f2a919df49737a2af22a5cacab60e2cbad5",
+      "size": 241166,
+      "mtime": 1789572861,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+    },
+    {
+      "path": "/home/liqirui6636/下载/Molchat Doma – Судно (Борис Рижий).mp3",
+      "sha256": "7184cdf1d73a579b3991f30f4cd0c8a26e07ad3f9c318c8abb75dfeb71f60142",
+      "size": 2263182,
+      "mtime": 1790002468,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 141
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/01 - 玫瑰少年.flac",
+      "sha256": "538b630c6b3f99e7fd832323460bb066fe28bce3e7fbe4307ebecd433a5228ba",
+      "size": 37992618,
+      "mtime": 1787739589,
+      "title": "玫瑰少年",
+      "artist": "蔡依林",
+      "album": "Ugly Beauty",
+      "duration": 182
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/1645853134136529-ee4955735246f884f97320182c16cf0c.flac",
+      "sha256": "ba1b0c1e449820ae0adf7c6dadafdd617ec1c6a4ccc91f24b3a14ab0e03fb333",
+      "size": 46758259,
+      "mtime": 1787739732,
+      "title": "We Are The World",
+      "artist": "Lionel Richie, Stevie Wonder, Paul Simon, Kenny Rogers, James Ingram, Tina Turner, Billy Joel, Michael Jackson, Diana Ross, Dionne Warwick, Willie Nelson, Al Jarreau, Bruce Springsteen, Kenny Loggins, Steve Perry, Daryl Hall, Huey Lewis, Cyndi Lauper, Kim Carnes, Bob Dylan, Ray Charles",
+      "album": "We Are The World",
+      "duration": 427
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/24KGoldn、iann dior - Mood (Clean).flac",
+      "sha256": "0b3a4f4919774d28488c097394e4ee8f5ab7b0ffddf73ca7e32915e74c1492ad",
+      "size": 61424476,
+      "mtime": 1787739759,
+      "title": "Mood (Clean)",
+      "artist": "24kGoldn/iann dior",
+      "album": "El Dorado",
+      "duration": 140
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/24KGoldn、iann dior - Mood (Explicit).flac",
+      "sha256": "7ba8631fd54af4d6be7232a2f5cf43733094067c6f07ffc652a448e1a751191d",
+      "size": 27883111,
+      "mtime": 1787739674,
+      "title": "Mood (Explicit)",
+      "artist": "24kGoldn/iann dior",
+      "album": "El Dorado (Explicit)",
+      "duration": 140
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/3_Strikes_yJu4MD2hagI_140.mp3",
+      "sha256": "6750390159d18d133fec2b944ffab33ad297193eebff33e9075f3cd671fcf677",
+      "size": 2616728,
+      "mtime": 1787739427,
+      "title": "3 Strikes",
+      "artist": null,
+      "album": "3 Strikes",
+      "duration": 175
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/4lpVxTCdzHmuOUweyd42+s1ATTIQrmIQ.m4a",
+      "sha256": "c2b27cc41f6724b3d38a7833da6f5695ab08953e00405404a43e567ee1744009",
+      "size": 2287563,
+      "mtime": 1790087055,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 141
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/5 Seconds of Summer - Teeth.flac",
+      "sha256": "b1c6d37510bfc222a08fdd147ea7d41dc9df2087fe64174e58f94e309a867c30",
+      "size": 24112751,
+      "mtime": 1787739677,
+      "title": "Teeth",
+      "artist": "5 Seconds of Summer",
+      "album": "13 Reasons Why (Season 3)",
+      "duration": 204
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/55分钟00后老歌合集.mp3",
+      "sha256": "8e1263b359bcd1a8ab73976919814ca0a599f88f4e4a876f7124e662fc54dfeb",
+      "size": 49107975,
+      "mtime": 1787739609,
+      "title": "55分钟00后老歌合集",
+      "artist": "泽林@ZeLinMusic",
+      "album": "泽林@ZeLinMusic",
+      "duration": 3061
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/6215844c26c90300d67499689b1b5fdf.mp3",
+      "sha256": "ba59ac85416b938779e791bbbffb0882db7e73091fba22703993d808aa616c69",
+      "size": 4650581,
+      "mtime": 1787739545,
+      "title": "Udit Narayan - Lake - W&W-印度神曲Aankhen Khuli &Thunderbolt &Chakra130-140（会飞的Neo remix）",
+      "artist": "777",
+      "album": "会飞的Neo Mashup Vol.1",
+      "duration": 287
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/70b5121e2f2ac9ece4ea0139fffb6ecc.mp3",
+      "sha256": "3ce6b19556bdc2b0f575688a1cb97a4729862dbdb130f3bc59a2f45999d3cec8",
+      "size": 6828004,
+      "mtime": 1787739447,
+      "title": "Aankhen Khuli",
+      "artist": "Lata Mangeshkar&&Udit Narayan&Ishaan&Shweta Pandit&Sonali Bhatawdekar&Pritha Mazumdar&Udhbav&Manohar Shetty&Shahrukh Khan",
+      "album": "Mohabbatein",
+      "duration": 424
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/7CEAN,SEVENOP - M3 (PHONK).flac",
+      "sha256": "ae92dda251ece92e19b2d4673a136b2979f0267dc556dbb915266a46840c2117",
+      "size": 16171020,
+      "mtime": 1787739346,
+      "title": "M3 (PHONK)",
+      "artist": "7CEAN, SEVENOP",
+      "album": "M3 (PHONK)",
+      "duration": 128
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/826eadae3870bf9e.mp3",
+      "sha256": "3dcdd9734405e780b433b6972de9ec85997ee4e105bb17e298b394f83f5f9954",
+      "size": 8528152,
+      "mtime": 1787739225,
+      "title": "Sold Out",
+      "artist": "Hawk Nelson",
+      "album": "Diamonds",
+      "duration": 212
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Atlxs - PASSO BEM SOLTO.flac",
+      "sha256": "61a091ad34d3708b76e10551890305c4f030fa3ba96352658ec32fc3b6d55a09",
+      "size": 38054698,
+      "mtime": 1787739657,
+      "title": "PASSO BEM SOLTO",
+      "artist": "Atlxs",
+      "album": "PASSO BEM SOLTO",
+      "duration": 103
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Beauty And A Beat(氛围版) - DJ阿哲.flac",
+      "sha256": "531ba7dad072a61af718cfe8544955a8259a740348978011887f99fdb8bad42b",
+      "size": 23668742,
+      "mtime": 1787739559,
+      "title": "Beauty And A Beat(氛围版)",
+      "artist": "DJ阿哲",
+      "album": "Ride It(氛围版)",
+      "duration": 183
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Bless_The_Lords戴上耳机感觉至上_将记忆永存_Blue_Sky.mp3",
+      "sha256": "631b712f3ba5e3ccaba25be45c926e6d0e91b3187a24f57358dd557b2a760430",
+      "size": 3107500,
+      "mtime": 1787739536,
+      "title": "Bless The Lords(戴上耳机感觉至上)",
+      "artist": "将记忆永存",
+      "album": "Blue Sky",
+      "duration": 188
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Blind Spots-C418.mp3",
+      "sha256": "30b49348dd8a719860378c310e60a7d54c96adc0c7e4ebab9f60d6e308de3077",
+      "size": 13306664,
+      "mtime": 1787739330,
+      "title": "Blind Spots",
+      "artist": "C418",
+      "album": "Minecraft - Volume Beta",
+      "duration": 332
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Bruno_Coulais,Les_Petits_Chanteurs_De_Saint_Marc_Vois_sur_ton.flac",
+      "sha256": "074ac9b5227f8696aa9f51ad00f3a38e2600dd7cf018ffe09d5d56f3b3c7fedb",
+      "size": 14073466,
+      "mtime": 1787739539,
+      "title": "Vois sur ton chemin",
+      "artist": "Bruno Coulais, Les Petits Chanteurs De Saint Marc",
+      "album": "Les Choristes (Bande originale du film)",
+      "duration": 139
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Bye_Bye_2025_2025年度串烧_Zeho傅子豪&Jiaber吴伯滔.flac",
+      "sha256": "2fd5ac7c56cdf5e0c8f8d86ed917e250afc481fea45eff5efb46ebccd27a5cba",
+      "size": 63325644,
+      "mtime": 1787739767,
+      "title": "Bye Bye 2025 (2025年度串烧)",
+      "artist": "Zeho傅子豪&Jiaber吴伯滔",
+      "album": "Bye Bye 2025 (2025年度串烧)",
+      "duration": 283
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/CHROMANCE - Wrap Me In Plastic.flac",
+      "sha256": "52908d887c3931355d743a6065bb850c11791e4a3309585cc6d4841a5f80d18d",
+      "size": 41135502,
+      "mtime": 1787739542,
+      "title": "Wrap Me In Plastic",
+      "artist": "CHROMANCE",
+      "album": "Wrap Me In Plastic",
+      "duration": 193
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Call of Silence - 澤野弘之.flac",
+      "sha256": "3f9e576e45591c729a5c95f8ef05092c2f61307e5bc2bb96c2b08f453bbe04db",
+      "size": 16967961,
+      "mtime": 1787739557,
+      "title": "Call of Silence",
+      "artist": "澤野弘之",
+      "album": "TVアニメ「進撃の巨人」Season 2 オリジナルサウンドトラック",
+      "duration": 178
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Children_of_the_Dark_Mono_Inc_Symphonies_of_Pain_Hits_and_Rar.mp3",
+      "sha256": "d224a2123077c5ba46d4e44e8dec602a0576abe410aacb4b78499ed929a28364",
+      "size": 4864177,
+      "mtime": 1787739537,
+      "title": "Children of the Dark",
+      "artist": "Mono Inc.",
+      "album": "Symphonies of Pain - Hits and Rarities",
+      "duration": 303
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Chrie Prown - Towards the Light (Radio Edit).flac",
+      "sha256": "4867d943909c54f9cbede1e50f1465c8a4da0b742cdd9ea00bf0f8a91e191af4",
+      "size": 27024052,
+      "mtime": 1787854055,
+      "title": "Towards the Light (Radio Edit)",
+      "artist": "Chrie Prown",
+      "album": "Like A Ricochet",
+      "duration": 316
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/DJ_OKAWARI_feat_fox_capture_plan_Lightning_Moment_EGyLTdxZPfA_14.mp3",
+      "sha256": "dadffdeb5802f1e1a218f9dd82286fcc36f2f41508712c91ccde60affe0ef421",
+      "size": 4799701,
+      "mtime": 1787739556,
+      "title": "DJ OKAWARI feat.fox capture plan「Lightning Moment」",
+      "artist": null,
+      "album": "DJ OKAWARI feat.fox capture plan「Lightning Moment」",
+      "duration": 280
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/DJ铁柱 - Faded异域 (变速0.9x).flac",
+      "sha256": "66e8761b9ecea6303c0aec08668d790d20b4c57f57ef524e2c5cb66ebe93cfb1",
+      "size": 24091730,
+      "mtime": 1790007386,
+      "title": "Faded异域 (变速0.9x)",
+      "artist": "DJ铁柱",
+      "album": "不问别离",
+      "duration": 265
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Ed Sheeran - Shape of You.flac",
+      "sha256": "82bf1c715eaa8ce1cbc07ca53bdd0191e2c0c59aaad735d7736e982b53168a35",
+      "size": 89556476,
+      "mtime": 1787739784,
+      "title": "Shape of You",
+      "artist": "Ed Sheeran",
+      "album": "Shape of You",
+      "duration": 233
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Faded - Alan Walker.flac",
+      "sha256": "1ff582e65b49edca9442db0624a07ab823725e2f00ddc09a5876ac6cd4096c38",
+      "size": 153577842,
+      "mtime": 1787739837,
+      "title": "Faded",
+      "artist": "Alan Walker",
+      "album": "Faded",
+      "duration": 212
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Faded_Light-PYLOT-Solai.mp3",
+      "sha256": "c6007d9c7e7ee6bf73622a56983b96b77442855530d6bff644229e695fa2e658",
+      "size": 5663488,
+      "mtime": 1787739310,
+      "title": "Faded Light",
+      "artist": "PYLOT",
+      "album": "Solai",
+      "duration": 333
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Faded异域_p_ipJt9_tp0_140.mp3",
+      "sha256": "1b7b13dea09cc4ff174623eff6ce4246042d8502cccb081676b5e124675e5e84",
+      "size": 3672006,
+      "mtime": 1787739551,
+      "title": "Faded异域",
+      "artist": null,
+      "album": "Faded异域",
+      "duration": 217
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/GESAFFELSTEIN_-_ALEPH.mp3",
+      "sha256": "32e15f02774112b51c57c4b099459fcf025e535d9f29cbf4ad633290b7b24e64",
+      "size": 11109142,
+      "mtime": 1787739422,
+      "title": "ALEPH ",
+      "artist": "GESAFFELSTEIN",
+      "album": "IG:- @official24naijamusic",
+      "duration": 276
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Go_Again_feat_ELYSA_King_CAAN_Elysa_Go_Again_feat_ELYSA.mp3",
+      "sha256": "bb05ee41ccdd28d2ef3dc497fea940d0b42dd96c3bdea534fa6e0064ed7bb2cb",
+      "size": 2909235,
+      "mtime": 1787739317,
+      "title": "Go Again (feat. ELYSA)",
+      "artist": "King CAAN&Elysa",
+      "album": "Go Again (feat. ELYSA)",
+      "duration": 179
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Jiaye - Astronomia (Bootleg) (2).flac",
+      "sha256": "e0b0114a5d873b1f4ada4fe39e31afc8aa274a88690022d9065e81abb555d775",
+      "size": 47762066,
+      "mtime": 1788165314,
+      "title": "Astronomia (Bootleg)",
+      "artist": "Jiaye",
+      "album": "Astronomia (Jiaye Bootleg)",
+      "duration": 223
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Just Friends - Hayden James&Boy Matthews.flac",
+      "sha256": "ebb190fd57bd443db4fb8cee5c553b0316677a3605dc579e1f378fa9b45a6410",
+      "size": 30009892,
+      "mtime": 1787739587,
+      "title": "Just Friends",
+      "artist": "Hayden James&Boy Matthews",
+      "album": "Just Friends (Explicit)",
+      "duration": 238
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Just_Friends-Hayden_James Boy_Matthews-Between_Us.mp3",
+      "sha256": "650ed863e1dbf7abfb38857f533aeb9109f676ee3482d7dd650ba950257e7309",
+      "size": 3984336,
+      "mtime": 1787739440,
+      "title": "Just Friends",
+      "artist": "Hayden James&Boy Matthews",
+      "album": "Between Us",
+      "duration": 239
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Justin Bieber,Nicki Minaj - Beauty And A Beat.flac",
+      "sha256": "0fda92d94bbe1502b7b8c648a1fd9f80dd57eb187df97a2b98adce2c3537a990",
+      "size": 97634772,
+      "mtime": 1787739791,
+      "title": "Beauty And A Beat",
+      "artist": "Justin Bieber/Nicki Minaj",
+      "album": "Believe (Deluxe Edition)",
+      "duration": 227
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Kamin(九重紫)_(俄语版)-Alexis_Burns-Kamin(九重紫).mp3",
+      "sha256": "977872f183d81fca361da0dc3146e619e54ff7ac403eef80a386d7b6c282ee59",
+      "size": 2376819,
+      "mtime": 1787739531,
+      "title": "Kamin(九重紫) (俄语版)",
+      "artist": "Alexis Burns",
+      "album": "Kamin(九重紫)",
+      "duration": 126
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Kamin-EMIN JONY-Kamin.mp3",
+      "sha256": "911ecd1d36764b231bfdbb691a1ac963331ba23d49c241e0af0322426d0475f6",
+      "size": 3093776,
+      "mtime": 1787739539,
+      "title": "Kamin",
+      "artist": "EMIN&JONY",
+      "album": "Kamin",
+      "duration": 187
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/LBI利比 - 小城夏天.flac",
+      "sha256": "e3263c9dc83da74c51a4a041b4ef24cb13cab048924e5ba8f4cb2650f67662e1",
+      "size": 20677045,
+      "mtime": 1787739526,
+      "title": "小城夏天",
+      "artist": "LBI利比",
+      "album": "小城夏天",
+      "duration": 173
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Leoseven、Obaka - UNICUBE! (Explicit).mp3",
+      "sha256": "38aa13a3e35ee11755469173af820ada218b2cb124f3232fc3a49faf592b6a35",
+      "size": 2305302,
+      "mtime": 1787739556,
+      "title": "UNICUBE!",
+      "artist": "Leoseven/Obaka",
+      "album": "UNICUBE! (Explicit)",
+      "duration": 144
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Life_Goes_On_feat_Ty_Dolla_$ign_Oliver_Tree_Ty_Dolla_$ign.mp3",
+      "sha256": "079d46fcaa614e5dce7cc6261d5cfa4a3c69232a4ac9763da0dac0e3021dfd81",
+      "size": 6473779,
+      "mtime": 1787739326,
+      "title": "Life Goes On (feat. Ty Dolla $ign)",
+      "artist": "Oliver Tree&Ty Dolla $ign",
+      "album": "Life Goes On (feat. Ty Dolla $ign)",
+      "duration": 161
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Lionel_Richie_Stevie_Wonder_Paul_Simon_Kenny_Rogers_James_Ingram.flac",
+      "sha256": "3c7cd0eb2b9088c2fc765b9291b2d6c9593fa7813b3e81e507ba42f44ea05bfe",
+      "size": 46805413,
+      "mtime": 1787739549,
+      "title": "We Are The World",
+      "artist": "Lionel Richie/Stevie Wonder/Paul Simon/Kenny Rogers/James Ingram/Tina Turner/Billy Joel/Michael Jackson/Diana Ross/Dionne Warwick/Willie Nelson/Al Jarreau/Bruce Springsteen/Kenny Loggins/Steve Perry/Daryl Hall/Huey Lewis/Cyndi Lauper/Kim Carnes/Bob Dylan/Ray Charles",
+      "album": "We Are The World",
+      "duration": 427
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Luke Pickman - Mystery of Love.flac",
+      "sha256": "d1b66189c2a7c22e09c92e98b8969288e73d096e1214f77f796dab89691866d8",
+      "size": 61804749,
+      "mtime": 1787739696,
+      "title": "Mystery of Love",
+      "artist": "Luke Pickman",
+      "album": "Mystery of Love",
+      "duration": 213
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/MENTE MÁ - Nakama.mp3",
+      "sha256": "f976d83856f08321569141e79eff7987065986ba12bd6c6fc45800f259757804",
+      "size": 3344933,
+      "mtime": 1787739538,
+      "title": "MENTE MÁ",
+      "artist": "Nakama",
+      "album": "MENTE MÁ",
+      "duration": 75
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Midnight City-M83.flac",
+      "sha256": "abed2ccf11f76fd060bc375331d1341aea8c04bd12e38547b6e7728f5fb6dcc8",
+      "size": 30570868,
+      "mtime": 1787739653,
+      "title": "Midnight City",
+      "artist": "M83",
+      "album": "Hurry up, We're Dreaming",
+      "duration": 243
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Molchat Doma - Клетка.mp3",
+      "sha256": "f03e82f8d7e684e90009c5277109a28f890922a352da0d987962cdb43c1aec09",
+      "size": 11592434,
+      "mtime": 1789918138,
+      "title": "Клетка",
+      "artist": "Molchat Doma",
+      "album": "Этажи",
+      "duration": 283
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Montagem Nada Tropica - Eternxlkz.flac",
+      "sha256": "8ffc3af6981281865d03ffa345ad01acce0fc0a21e4bcd83bfe2ae4f65411526",
+      "size": 12109243,
+      "mtime": 1787739563,
+      "title": "Montagem Nada Tropica",
+      "artist": "Eternxlkz",
+      "album": "Montagem Nada Tropica",
+      "duration": 119
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Mood_Lil_Ghost_Remix_24kGoldn_iann_dior_Lil_Ghost小鬼_Mood_Lil_.mp3",
+      "sha256": "8062f2617845ec0bea4a7e5a7e12569fd33768aaf3cb0077cc871305e498fd98",
+      "size": 3512711,
+      "mtime": 1787739558,
+      "title": "Mood (Lil Ghost Remix)",
+      "artist": "24kGoldn&iann dior&Lil Ghost小鬼",
+      "album": "Mood (Lil Ghost Remix)",
+      "duration": 197
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Moog City-C418.mp3",
+      "sha256": "1b8460c2378d4ed1b06a670b10468f0bf58107caa9ead99c97bd9bfcd9822d79",
+      "size": 6406621,
+      "mtime": 1787739562,
+      "title": "Moog City",
+      "artist": "C418",
+      "album": "Minecraft - Volume Alpha",
+      "duration": 160
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Mystery of Love   Sufjan Stevens.mp3",
+      "sha256": "24e158e7545d8750c00d24d2ed3a7ed662ca18899fae81286366ea5a91f6d9fe",
+      "size": 4028681,
+      "mtime": 1787739249,
+      "title": "Mystery of Love",
+      "artist": "Sufjan Stevens",
+      "album": "Call Me By Your Name (Original Motion Picture Soundtrack)",
+      "duration": 248
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Noevo - Lighting Moment（PHONK).flac",
+      "sha256": "006f3d9263410afcdc7fa036cde8a7978a0b186e80c9531ed02bd2824430eabd",
+      "size": 17659969,
+      "mtime": 1787739329,
+      "title": "Lighting Moment（PHONK)",
+      "artist": "Noevo",
+      "album": "Lighting Moment（PHONK)",
+      "duration": 148
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/One Spot - 秃头少女.mp3",
+      "sha256": "7c3f2841b78adddfb208c9042ab31355893922bdf77ad2085ca13a690e8f7d72",
+      "size": 5996379,
+      "mtime": 1787739451,
+      "title": "One Spot",
+      "artist": "秃头少女",
+      "album": "One Spot（美美桑累小八版）",
+      "duration": 148
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/PASSO FUNK - Lunak.mp3",
+      "sha256": "35124b3ca1a080f1b36e18253acb378b1ff33093ac2505e534e69111c42ab20d",
+      "size": 5182415,
+      "mtime": 1787739444,
+      "title": "PASSO FUNK",
+      "artist": "Lunak",
+      "album": "PASSO FUNK",
+      "duration": 125
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Piano Fantasia - Song for Denise (Maxi version).flac",
+      "sha256": "60ed5e0dab54eacbf4602b72871f0d704a4d42111d51b86140016d6891071273",
+      "size": 52879880,
+      "mtime": 1787739731,
+      "title": "Song for Denise (Maxi version)",
+      "artist": "Piano Fantasia",
+      "album": "Best of Collector: Piano Fantasia (Le meilleur des années 80)",
+      "duration": 422
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Rick Astley-Never Gonna Give You Up.flac",
+      "sha256": "cdc2f32414bad684aa1657853d775611c22c47434d1f4d7d47e35922e6d7c581",
+      "size": 27508576,
+      "mtime": 1787739625,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 212
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/SINOS DE NATAL JUMPSTYLE-MGD MXZHPHXNK TWXNY INNXCENCE.flac",
+      "sha256": "35bdc33a7b5dc8baac3c48f00b7a6263312c717a3e2ca4411653311482159c71",
+      "size": 11945119,
+      "mtime": 1787739346,
+      "title": "SINOS DE NATAL JUMPSTYLE",
+      "artist": "MGD MXZHPHXNK TWXNY INNXCENCE",
+      "album": null,
+      "duration": 88
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/SLANDER,Dylan Matthew - Love Is Gone (Acoustic).mp3",
+      "sha256": "ba4d44101480633526b558b4b4028b0cc83380c36db5480ef009205166324fba",
+      "size": 7104620,
+      "mtime": 1787739324,
+      "title": "Love Is Gone (Acoustic)",
+      "artist": "SLANDER/Dylan Matthew",
+      "album": "Love Is Gone (Acoustic)",
+      "duration": 177
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/See You Again - Charlie Puth.flac",
+      "sha256": "9b8a0eb56d1a1badffe246236885e9a6100514fbac315335b6299204d680f79e",
+      "size": 22704494,
+      "mtime": 1787739632,
+      "title": "See You Again",
+      "artist": "Charlie Puth",
+      "album": "歌手2025 第3期",
+      "duration": 229
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Shots (Reverb  Slowed)-PoyloK-[AudioTrimmer.com] (1).mp3",
+      "sha256": "029effac20caa51bd809f23bab2f9e69795e55bc9cd8da298373c7bc1064582f",
+      "size": 6541347,
+      "mtime": 1787739535,
+      "title": "Shots (Reverb Slowed)",
+      "artist": "PoyloK",
+      "album": "Would I Ever",
+      "duration": 272
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Shots (Reverb  Slowed)-PoyloK-[AudioTrimmer.com].mp3",
+      "sha256": "ce9905e65fb2d925e16b36aeb55d1e75df6e170216a8ea8ca2eb893816b55109",
+      "size": 5815352,
+      "mtime": 1787739536,
+      "title": "Shots (Reverb Slowed)",
+      "artist": "PoyloK",
+      "album": "Would I Ever",
+      "duration": 242
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Shots (Reverb  Slowed)-PoyloK.mp3",
+      "sha256": "29bf343176d238226cb15386fcd0edc556cad1bf590031b4bf65f543da8eb8ab",
+      "size": 8791057,
+      "mtime": 1787739531,
+      "title": "Shots (Reverb Slowed)",
+      "artist": "PoyloK",
+      "album": "Would I Ever",
+      "duration": 217
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Sustain(宿命感) - 欧美群星 & Ola.flac",
+      "sha256": "cc5605899ed6451f66a4b1a4b03e04316524cb3da5e5c30f20ddbb68537e51b3",
+      "size": 17688064,
+      "mtime": 1787739579,
+      "title": "Sustain(宿命感)",
+      "artist": "欧美群星 & Ola",
+      "album": "Sustain",
+      "duration": 121
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/TIMBER_Minh_Quang_Remix_Tiktok_越南鼓_Pitbull_ft_Kesha_Ho_eEVbwcAY.mp3",
+      "sha256": "51a90eef6d0eaaf4af61bd33c002bfbb8ba517555526759a44862bb1fe262f07",
+      "size": 4344406,
+      "mtime": 1787739310,
+      "title": "TIMBER (Minh Quang Remix Tiktok) 越南鼓 - Pitbull ft. Kesha || Hot Trend Tiktok Thịnh Hành 2022",
+      "artist": null,
+      "album": "TIMBER (Minh Quang Remix Tiktok) 越南鼓 - Pitbull ft. Kesha || Hot Trend Tiktok Thịnh Hành 2022",
+      "duration": 261
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/The Kid LAROI,Justin Bieber - STAY.flac",
+      "sha256": "ec8edb374d72a7f1bd567e40bde63f81768db295bb5dce6b2e2444214c30485b",
+      "size": 52126760,
+      "mtime": 1787739721,
+      "title": "STAY",
+      "artist": "The Kid LAROI/Justin Bieber",
+      "album": "STAY",
+      "duration": 141
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/The-Otherside.m4a",
+      "sha256": "c8d5fd1171d04549dedabc8185e031614ffb00b791d760163f98665894358e85",
+      "size": 3285742,
+      "mtime": 1787739329,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 202
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/The90ers-ShortDickMan(DjJindMix)-越鼓女VinaHouse.mp4.mp3",
+      "sha256": "0a2bd7aa9848763c77a3fda14ae1c647f6fe6fba33bbf59062356750d1d7dddb",
+      "size": 2242415,
+      "mtime": 1788590149,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 266
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/The_Right_Path-Thomas_Greenberg-Age_Of_Innocence.mp3",
+      "sha256": "cba5642433ca15ff32a48960c9a6480aba58e3e3d98757e7ce6b73f0d89a2652",
+      "size": 2421021,
+      "mtime": 1787739532,
+      "title": "The Right Path",
+      "artist": "Thomas Greenberg",
+      "album": "Age Of Innocence",
+      "duration": 148
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/TiWYNLiZTkE.mp3",
+      "sha256": "18370f0925587710b25b393db8225093672a5582d26336fc7c395af3b424c72e",
+      "size": 5831921,
+      "mtime": 1787739315,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 242
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Time to Pretend-Lazer Boomerang.flac",
+      "sha256": "14aabd1c723651438f14f4b9fbdc9a61f450d38eeb782b1f998d18c48e859e88",
+      "size": 32933660,
+      "mtime": 1787739607,
+      "title": "Time to Pretend",
+      "artist": "Lazer Boomerang",
+      "album": "Time to Pretend",
+      "duration": 314
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Towards_the_Light-Jacoo-Release_Your_Mind.mp3",
+      "sha256": "8cfa54df6b28caa461fa37350ee67a94364632cf09790150ca6ebed9a783c8be",
+      "size": 3827480,
+      "mtime": 1787739334,
+      "title": "Towards the Light",
+      "artist": "Jacoo",
+      "album": "Release Your Mind",
+      "duration": 237
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Vicetone,Cozi Zuehlsdorff - Nevada.flac",
+      "sha256": "fbbb078bf7c10824800e83a2bb418940a641c70ef92d12c22d58ac82753aede1",
+      "size": 26821167,
+      "mtime": 1787739582,
+      "title": "Nevada",
+      "artist": "Vicetone, Cozi Zuehlsdorff",
+      "album": "Nevada",
+      "duration": 208
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Viva la Vida - Coldplay.mp3",
+      "sha256": "0bf7a01ff659732b596ac8a5473e5b62f659368e4436c5340792b0289715408b",
+      "size": 9715938,
+      "mtime": 1787739531,
+      "title": "Viva la Vida",
+      "artist": "Coldplay",
+      "album": "NBA 2K13 Original Soundtrack",
+      "duration": 241
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/We-Are-The-World-Live.m4a",
+      "sha256": "4006a0628f9704e60112de078f3d47b62df307cf2a9160e9113a65dc9f7c1d01",
+      "size": 5679062,
+      "mtime": 1787739370,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 350
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/X-COOL-Best-Slowed-and-Reverb.m4a",
+      "sha256": "3f4761d04bcb33137d3183fd49bceef011f819adf9458d729e3a92de1e499870",
+      "size": 2108038,
+      "mtime": 1787739376,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 130
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/X-cool  Phonk -Nawu.flac",
+      "sha256": "d4dc5ca05e379967d623c6b9a42cffb2fc810fc5d5eb8ba3d84778aa185016cb",
+      "size": 24600269,
+      "mtime": 1787739548,
+      "title": "X-cool！（Phonk）",
+      "artist": "Nawu",
+      "album": null,
+      "duration": 104
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Yellow - Coldplay.mp3",
+      "sha256": "ac482ded93b213be8fda5656fcac5a6581309841b7f966c34059ec9686a69c33",
+      "size": 11158326,
+      "mtime": 1787739538,
+      "title": "Yellow",
+      "artist": "Coldplay",
+      "album": "Yellow",
+      "duration": 266
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/afa1e2fb886cd35e60ce1c19176d71fd.mp3",
+      "sha256": "f40f258c7e03e0d809186221fbc77630148f4dcc864d2fb4790a421d6e7627e8",
+      "size": 1353459,
+      "mtime": 1789916984,
+      "title": "Die For You x 泪蛋蛋掉在酒杯里 x 忘情牛肉面",
+      "artist": "茸茸",
+      "album": "Die For You x 泪蛋蛋掉在酒杯里 x 忘情牛肉面",
+      "duration": 82
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/brazilian_master_phonk_groove_tiki_tiki___tiki_tiki_72a42b83.mp3",
+      "sha256": "4c391018689f4028003ac7fdca1a7c00df704935eec5001df8a52797a2bd7c88",
+      "size": 4269985,
+      "mtime": 1787739253,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 197
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/c2c0244103a165d801f3a8b359c0118a.mp3",
+      "sha256": "82ccced0cc08a579a1a6ce05496bdf62ce035d36307a278920635211a5fc8dcf",
+      "size": 3266101,
+      "mtime": 1787739321,
+      "title": "Waka Waka (This Time for Africa) [The Official 2010 FIFA World Cup (TM) Song](Single)",
+      "artist": "Shakira&Freshlyground",
+      "album": "Sommer Pop Hits (Explicit)",
+      "duration": 202
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/green_to_blue_(Sped_Up)-Aurenth-green_to_blue.mp3",
+      "sha256": "b5f00e312a695a44cdbb2bb17460c30d8a1ee2005d724e556155b3282b5e53da",
+      "size": 1510806,
+      "mtime": 1787739312,
+      "title": "green to blue (Sped Up)",
+      "artist": "Aurenth",
+      "album": "green to blue",
+      "duration": 81
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/kamin-Sam-kamin.mp3",
+      "sha256": "c25e86a2b3adbd1de9886341bdfdb7b0adb6a7a1724c8ec5778b8c21a2b24fbe",
+      "size": 2522471,
+      "mtime": 1787739449,
+      "title": "kamin",
+      "artist": "Sam",
+      "album": "kamin",
+      "duration": 153
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/lumix_kxrsed___dream_funk_b0b244e6.mp3",
+      "sha256": "6ed025e02bdd5ccbbd521eb3e05c7ca2f5b1b12d3b060066f0d17e1e9c23a77e",
+      "size": 1701056,
+      "mtime": 1787739316,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 96
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/m-taku - Komorebi (叶隙间洒落的阳光).flac",
+      "sha256": "2988d33b6916049b11c4a07cc4cf72638b06afa6924cc759f6d8f36b90438b9a",
+      "size": 24054814,
+      "mtime": 1787739537,
+      "title": "Komorebi (叶隙间洒落的阳光)",
+      "artist": "m-taku",
+      "album": "SOUND NOVEL",
+      "duration": 212
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/mdmXAELtUQU.mp3",
+      "sha256": "5342be33ab1881c01ea9217bdd6953ae7c802b81e94aa02599c01d7cf0f878dd",
+      "size": 7884519,
+      "mtime": 1787739310,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 328
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/passion (Speed Up) - silent anthem & heart embrace.flac",
+      "sha256": "4c489cc9eae7d91e4bf733d27c7a08ea62c1e9195d8db6d4f86cb854cc725b68",
+      "size": 18599672,
+      "mtime": 1787739566,
+      "title": "passion (Speed Up)",
+      "artist": "silent anthem & heart embrace",
+      "album": "passion",
+      "duration": 132
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/qian_yu_meng_zhong_de_hun_li_chun_gang_qin_wu_sun_jing_dian_ba.mp3",
+      "sha256": "c8dfce6ea396d6c03f9ed7d36e9897dc49e2bedba75d1ab21f73539d869038f5",
+      "size": 2292378,
+      "mtime": 1787739318,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 178
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/qmiir___tiki_tiki_32d99549.mp3",
+      "sha256": "e32f9f8d54d05cebb9e04dc219d6a4fcb1e345280442ff77f6c85e967926648e",
+      "size": 1665139,
+      "mtime": 1787739253,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 100
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/qmiir_ravens_rock_salima_chica___tiki_tiki_rock_67fa8970.mp3",
+      "sha256": "9c357cb55e2a44d3af87f9e75278a4ade13feab46c85a0cf96d8625d6a57a163",
+      "size": 1657597,
+      "mtime": 1787739248,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 100
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/sZ-s8Ntnhtw.mp3",
+      "sha256": "75d516ec7844d5b53793582c4e46479b82a578af02df600ebd4ad367edb14602",
+      "size": 2602569,
+      "mtime": 1787739543,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 108
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/skuaio___fell_down_feng_xiang_xing_zuo_qu_ade169ee.mp3",
+      "sha256": "ad5162af61cb54b9127512143dd62782dcfdde920c45ddb0d99eaf560fe42ee0",
+      "size": 2291506,
+      "mtime": 1787739316,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 148
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Симпа_Mikis_Remix_RAIM_Artur_Adil_Райм_Артур_Mikis_Симпа.mp3",
+      "sha256": "bce0acbd90343dfca076982d95a104484ed958cd74393e35fdd445efdfc47c2b",
+      "size": 2685918,
+      "mtime": 1787739556,
+      "title": "Симпа (Mikis Remix)",
+      "artist": "RAIM&Artur&Adil&Райм & Артур&Mikis",
+      "album": "Симпа (Mikis Remix)",
+      "duration": 152
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/Умри, если меня не любишь   DAKOOKA.mp3",
+      "sha256": "858d68c915392ce08108b55d98c5ffdd3fe83ec505acc99ed27e891adc41d503",
+      "size": 6003982,
+      "mtime": 1787739383,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": null
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/“误闯天家_劝余放下手中砂”《辞九门回忆》（0_9xDJ版）.m4a",
+      "sha256": "dbc9e294f2a037d4c99cc4a2b5c493fb74b282ee4eb7175c110bc27ea9f9049c",
+      "size": 4061256,
+      "mtime": 1787739573,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 250
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/《精卫》关中王进行曲完整版.m4a",
+      "sha256": "f883594d88ecc12f766844c0125a5ba2fa866d5ad9df366c6038b94417448e3e",
+      "size": 3626432,
+      "mtime": 1787739565,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 224
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/东南苦山行 - 殷正洋.flac",
+      "sha256": "a60615d62829c0909702d4f73b1fdf410b8fe738ecfa7fd0c0d8ecb6027600cc",
+      "size": 157101520,
+      "mtime": 1787739837,
+      "title": "东南苦山行",
+      "artist": "殷正洋",
+      "album": "雨中的歉意",
+      "duration": 238
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/亲爱的你被火葬-zeroYan.flac",
+      "sha256": "33226bf186ec55f910033f8cefe4f71a71ebf6bf042dc2b1fb6fecffb06f7eda",
+      "size": 4335902,
+      "mtime": 1787739314,
+      "title": "亲爱的你被火葬",
+      "artist": "zeroYan",
+      "album": null,
+      "duration": 102
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/你若三冬-将军进行曲-DJ沈乐版.m4a",
+      "sha256": "683f5dcb909303293c3cd142592eb2ed97dbde29b74adb8c50b42dc9854b11e9",
+      "size": 3120917,
+      "mtime": 1787739328,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 192
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/侧脸 - 于果 (2).mp3",
+      "sha256": "2d3136c4324b365a6d16fded97640d20ab960631037b0ca1d65523a237ef9826",
+      "size": 3486803,
+      "mtime": 1788447102,
+      "title": "侧脸",
+      "artist": "于果",
+      "album": "侧脸",
+      "duration": 217
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/刘德华 - 恭喜发财.flac",
+      "sha256": "d6a9cfa2bda8a25fc45783c7e76a5e06be6300bd50604bd5fc98422eac08ab84",
+      "size": 25931336,
+      "mtime": 1787739508,
+      "title": "恭喜发财",
+      "artist": "刘德华",
+      "album": "继续谈情 新歌 & 精选",
+      "duration": 202
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/反乌托邦 Pt.2&Montagem (拼接遗憾) - Neo Yan.flac",
+      "sha256": "a460ba69135ddaf3a69cb78d6ed530332d02b001e84dac7fdb6337aa074e1462",
+      "size": 15009010,
+      "mtime": 1787739314,
+      "title": "反乌托邦 Pt.2&Montagem (拼接遗憾)",
+      "artist": "Neo Yan",
+      "album": "反乌托邦 Pt.2&Montagem (拼接遗憾)",
+      "duration": 122
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/同花顺 甲乙丙丁 怜悯-DJ阿哲.mp3",
+      "sha256": "f5795ed390cc11efd42173fc51529921fa5a5a0333bd8f35438df9b2158fbc80",
+      "size": 3622517,
+      "mtime": 1790086972,
+      "title": "同花顺&甲乙丙丁&怜悯",
+      "artist": "DJ阿哲",
+      "album": null,
+      "duration": 86
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/同花顺+甲乙丙丁_混音DJ_羊村懒羊羊_于归_0508c1.mp3",
+      "sha256": "31dc9abbea9f368cf12e524b624c4c69ab371e1f3ac3e8993afd1058a7cfeeab",
+      "size": 1746103,
+      "mtime": 1790086973,
+      "title": "同花顺+甲乙丙丁 (混音DJ)",
+      "artist": "羊村懒羊羊",
+      "album": "于归",
+      "duration": 105
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/同花顺_林倛玉_12蓮花_原著電影原聲帶_Original_Motion_Picture_Soundtrack.mp3",
+      "sha256": "ebabb35a10a482696fc7d1b3e2f814fc39d42aabff72281c833c812f50bde905",
+      "size": 4127032,
+      "mtime": 1790086831,
+      "title": "同花顺",
+      "artist": "林倛玉",
+      "album": "12蓮花 原著電影原聲帶 (Original Motion Picture Soundtrack)",
+      "duration": 238
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/告五人 - 爱人错过.flac",
+      "sha256": "84523fd460727bda8f950d86e0745176f63e6f26799fbdf084bf43210a5abb28",
+      "size": 66495007,
+      "mtime": 1787739732,
+      "title": "爱人错过",
+      "artist": "告五人",
+      "album": "我肯定在几百年前就说过爱你",
+      "duration": 292
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/告白气球-周杰伦-7149583.flac",
+      "sha256": "2aa19bff3d612d38db9e2b6c8b5ae22755ff98af652df107a023f9c256a9ff0f",
+      "size": 25117595,
+      "mtime": 1787739526,
+      "title": "告白气球",
+      "artist": "周杰伦",
+      "album": "周杰伦的床边故事",
+      "duration": 215
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/周杰伦-七里香.wav",
+      "sha256": "98ccd8a7a026348cbfc78a55f0e225edc3bfdf86d71a9b7e53096393b5b8ef19",
+      "size": 52583990,
+      "mtime": 1787739668,
+      "title": "七里香",
+      "artist": "周杰伦",
+      "album": "七里香",
+      "duration": 296
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/周杰伦-晴天.wav",
+      "sha256": "af862a5a867adf0c7cd84182a9ab128d19b395342366b265fe8e8f4443bb800c",
+      "size": 47861358,
+      "mtime": 1787739633,
+      "title": "晴天",
+      "artist": "周杰伦",
+      "album": "晴天",
+      "duration": 269
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/周杰伦-青花瓷.wav",
+      "sha256": "6257c360388aacd9a1c49db56f1ee73b5d0911e60bee12b12009de2d2b01a296",
+      "size": 42410338,
+      "mtime": 1787739697,
+      "title": "青花瓷",
+      "artist": "周杰伦",
+      "album": "我很忙",
+      "duration": 239
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/大东北我的家乡(DJ何鹏版)-何玉-71102685.flac",
+      "sha256": "d0f60da56693b588f4296dc32a58cdc50c838950c006b36adb0fb92266270e1b",
+      "size": 34541737,
+      "mtime": 1787739539,
+      "title": "大东北我的家乡(DJ何鹏版)",
+      "artist": "何玉",
+      "album": "大东北我的家乡",
+      "duration": 246
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/大爆炸进行曲-DJ大大怪.mp3",
+      "sha256": "2ef5f88792a2273ea369aaab05e9a3e58a3d869d76e35dee07053cd54ef6f1aa",
+      "size": 2828542,
+      "mtime": 1787739200,
+      "title": "大爆炸进行曲",
+      "artist": "DJ大大怪",
+      "album": null,
+      "duration": 165
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/好运来.flac",
+      "sha256": "5c11e7317e80da5163c549ed614295c954cb86b5bdd371b9bf8cc285d0f29c73",
+      "size": 45874417,
+      "mtime": 1787739654,
+      "title": "好运来",
+      "artist": "祖海",
+      "album": "再唱为了谁",
+      "duration": 213
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/宇多田ヒカル - One Last Kiss.mp3",
+      "sha256": "54f5da892d42e0757f63d212e1511a8ece04001ace79cb7c656847c5afefbb80",
+      "size": 10993257,
+      "mtime": 1787739212,
+      "title": "One Last Kiss",
+      "artist": "宇多田ヒカル",
+      "album": "One Last Kiss",
+      "duration": 252
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/宇多田光_Merry_Christmas_Mr_Lawrence_FYI_劳伦斯先生圣诞快乐.flac",
+      "sha256": "f4439088eecf049ace2ecb72a7c945b9ee53bd23bdca7a52400c686665668379",
+      "size": 29071191,
+      "mtime": 1787739532,
+      "title": "Merry Christmas Mr. Lawrence - FYI (劳伦斯先生圣诞快乐)",
+      "artist": "宇多田光",
+      "album": "TOKYO - POP  CHRISTMAS  2021 -",
+      "duration": 229
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/室内系的TrackMaker法修散打-hanser-HQ.mp3",
+      "sha256": "9b38230b915c58c969a42ca9f97b94309d28624e2d3ed5c28f1c79b63280da92",
+      "size": 2217056,
+      "mtime": 1787739442,
+      "title": "室内系的TrackMaker(法修散打)",
+      "artist": "hanser",
+      "album": "Hanser唱的歌 (180924为止 hanser)",
+      "duration": 138
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/巴拉莱卡（The Rod） - 门尼.flac",
+      "sha256": "1ea8a23f48f17060872c1b6a8f84f9708085323728a59ccc982dfdb7176f38d6",
+      "size": 44741611,
+      "mtime": 1787739693,
+      "title": "巴拉莱卡（The Rod）",
+      "artist": "门尼",
+      "album": "贵族：Part.2",
+      "duration": 225
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/弱水三千_0_8x_DJ苏熠鸣_苏熠鸣_弱水三千_DJ苏熠鸣版.mp3",
+      "sha256": "4e629628b14b5458e58d5fb6d29171c90e335a178897414f8eb25a32fb7692c6",
+      "size": 3438657,
+      "mtime": 1787739330,
+      "title": "弱水三千 (0.8x DJ苏熠鸣)",
+      "artist": "苏熠鸣",
+      "album": "弱水三千 (DJ苏熠鸣版)",
+      "duration": 211
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/徐梦圆 - China-E (中国-E) (2).flac",
+      "sha256": "6ea301209529a2cdea67af431deaf4ab393419e748aa8366ec3ea3238f745891",
+      "size": 20910893,
+      "mtime": 1790001159,
+      "title": "China-E",
+      "artist": "徐梦圆",
+      "album": "China-E",
+      "duration": 204
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/徐梦圆 - China-PiPa (中国琵琶) (2).flac",
+      "sha256": "374298f072caac580c1a369210526b48f955347f4e26dda65b99329a44b38c59",
+      "size": 28434126,
+      "mtime": 1790001204,
+      "title": "China-PiPa",
+      "artist": "徐梦圆",
+      "album": "China-Pipa",
+      "duration": 259
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/徐梦圆 - China-Rain (2).flac",
+      "sha256": "7d7805221e8d3ecfef159aac2a30c232f68eaab015fac9f7442e23bdd88aaee8",
+      "size": 34824226,
+      "mtime": 1790001232,
+      "title": "China-Rain",
+      "artist": "徐梦圆",
+      "album": "China-Rain",
+      "duration": 297
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/徐梦圆 - China-X (中国-X) (2).flac",
+      "sha256": "7340001a375b92e6c3a1b9bdb8ee94f1862d94ea0d0847dccc6cdb5ec993ff74",
+      "size": 21156802,
+      "mtime": 1790001166,
+      "title": "China-X",
+      "artist": "徐梦圆",
+      "album": "Change",
+      "duration": 226
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/忘情牛肉面 - 马健涛 (2).mp3",
+      "sha256": "f6b87dd3ed128eb4083dc8b13da57860cf387c67c9b8a8f1cde4dcd3ec8f7d43",
+      "size": 7360154,
+      "mtime": 1790003286,
+      "title": "忘情牛肉面",
+      "artist": "马健涛",
+      "album": "忘情牛肉面",
+      "duration": 182
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/愛錯.mp3",
+      "sha256": "fbd29f3e2320723d2aad83eb181fd8bc0a03a6c35aff66c77f082b23251a1f9c",
+      "size": 5733549,
+      "mtime": 1787739559,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 238
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/我本将心向明月_戏腔降调版_夜半微醺_我本将心向明月戏腔降调版_251fbd.mp3",
+      "sha256": "344a753d4f1c6eff18f81c8d8b49cd10591ccf3b38612c1e414fad00db77407b",
+      "size": 2859059,
+      "mtime": 1790003991,
+      "title": "我本将心向明月 (戏腔降调版)",
+      "artist": "夜半微醺",
+      "album": "我本将心向明月(戏腔降调版)",
+      "duration": 176
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/我本将心向明月_遗憾版_诚天舒_我本将心向明月_遗憾版_7bbf4d.mp3",
+      "sha256": "5fcdbc886784076768e96419988b78c1655187d8461cfec9c5d47df15e22e5e5",
+      "size": 3010746,
+      "mtime": 1790003973,
+      "title": "我本将心向明月（遗憾版）",
+      "artist": "诚天舒",
+      "album": "我本将心向明月（遗憾版）",
+      "duration": 185
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/我的中国心(Dj版 -天下无敌.mp3",
+      "sha256": "d0238540b6bf568b3ac1ff99498275111709deb52cd84b0a352907c5d98c16c4",
+      "size": 15335424,
+      "mtime": 1789138663,
+      "title": "我的中国心(Dj版）",
+      "artist": "天下无敌",
+      "album": null,
+      "duration": 441
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/揽佬 - 中国人能飞.flac",
+      "sha256": "010949570d7e81a77f895dee111735a90a01e9ce45ed227ee5a28912082b7a9a",
+      "size": 12434117,
+      "mtime": 1787739321,
+      "title": "中国人能飞",
+      "artist": "揽佬",
+      "album": "中国人能飞",
+      "duration": 98
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/朋友的酒-李晓杰-老大.mp3",
+      "sha256": "65a1ad36a9017d2a9d55a1c252964f9639a9867916d461f3bfa9202903b402e5",
+      "size": 4212515,
+      "mtime": 1787739209,
+      "title": "朋友的酒",
+      "artist": "李晓杰",
+      "album": "老大",
+      "duration": 261
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/柳爽 - 漠河舞厅 (2).flac",
+      "sha256": "f1b8ac395b172dcc17bc8443f9de337526e47192de91d65d6535806c2dd48745",
+      "size": 35697721,
+      "mtime": 1790001269,
+      "title": "漠河舞厅",
+      "artist": "柳爽",
+      "album": "1st.星球",
+      "duration": 334
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/梦的翅膀受了伤-DJ阿智-梦的翅膀受了伤-66caad.mp3",
+      "sha256": "f5e5dc0527f0ba7eb36ba6a413fd4b47b2d1ae6c7dd7c6226fa4c16c290ccf56",
+      "size": 2115899,
+      "mtime": 1787739308,
+      "title": "梦的翅膀受了伤",
+      "artist": "DJ阿智",
+      "album": "梦的翅膀受了伤",
+      "duration": 124
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/海阔天空 - Beyond.flac",
+      "sha256": "69c2ae7a9b49e8ae03d5c3779afe317a90c7fb4ac634d6a047d32938d851b524",
+      "size": 183389301,
+      "mtime": 1787739842,
+      "title": "海阔天空",
+      "artist": "Beyond",
+      "album": "海阔天空",
+      "duration": 326
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/游京 (我闻着饼香) - Dj阿农.flac",
+      "sha256": "3e9ae54723bd36005815c56763d51b63329ac0aad460a81bdc25d40f43b12c7d",
+      "size": 23138273,
+      "mtime": 1787739632,
+      "title": "游京 (我闻着饼香)",
+      "artist": "Dj阿农",
+      "album": "游京（我闻着饼香）",
+      "duration": 218
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/游京(原唱伴奏)-海伦-82528665.flac",
+      "sha256": "b72e30f064c4e8ae06ac7de1bf46aea707ac9c4dd8f0306002a48201c0df7ff5",
+      "size": 15702074,
+      "mtime": 1787739519,
+      "title": "游京",
+      "artist": "海伦",
+      "album": "游京",
+      "duration": 225
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/热情奏鸣曲.flac",
+      "sha256": "587f12c65c704548c0ba8b157b72eaa45c6251e80dbf97a836194dca1f2ac9cf",
+      "size": 26678893,
+      "mtime": 1787739625,
+      "title": "热情奏鸣曲 (钢琴)",
+      "artist": "贝多芬",
+      "album": "HiVi 综合试音",
+      "duration": 337
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/牵丝戏中长跑进行曲_DJ云兮_牵丝戏_中长跑进行曲_62b96e.mp3",
+      "sha256": "ab8de483555dcfe6ffd2cd6765b442450b2d6c99c6d3d3aa55ebbf6bc3957fbd",
+      "size": 5131487,
+      "mtime": 1790003600,
+      "title": "牵丝戏(中长跑进行曲)",
+      "artist": "DJ云兮",
+      "album": "牵丝戏（中长跑进行曲）",
+      "duration": 316
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/琵琶行 (盛世落幕版)-超级大瓜-琵琶行-879213.mp3",
+      "sha256": "0cd99cfd3ed6939e56f858572e4c07789eb5304bb8e6f1cd667f8e67b754c7ad",
+      "size": 1398036,
+      "mtime": 1790003213,
+      "title": "琵琶行 (盛世落幕版)",
+      "artist": "超级大瓜",
+      "album": "琵琶行",
+      "duration": 85
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/琵琶行 琵琶弹奏 -琵琶小艺-琵琶古风新奏 (2).mp3",
+      "sha256": "197202081367edf010296ab5274bfa3f3b2b7dae700ffadf13d62ac868a7764c",
+      "size": 5370204,
+      "mtime": 1790003141,
+      "title": "琵琶行（琵琶弹奏）",
+      "artist": "琵琶小艺",
+      "album": "琵琶古风新奏",
+      "duration": 335
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/琵琶行 降调版 -落芸.flac",
+      "sha256": "0ed649fcd51e51aa5e1908d2dee687d51b7b677c7ffbe410eeb55352adac3c8d",
+      "size": 33450411,
+      "mtime": 1790003311,
+      "title": "琵琶行（降调版）",
+      "artist": "落芸",
+      "album": null,
+      "duration": 322
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/琵琶行（虞姬 Remix） (2).m4a",
+      "sha256": "09a977656796ea8d132a798e2845a9e9494093ef57468d847af2a42c3c34b8fd",
+      "size": 3691312,
+      "mtime": 1790003118,
+      "title": "琵琶行（虞姬 Remix）",
+      "artist": "虞姬",
+      "album": null,
+      "duration": 113
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/秦皇岛.mp3",
+      "sha256": "e9a65ddd8a2779a056a2333f2a78d38cece0dfb16ef176e225a335cec1475a57",
+      "size": 11554029,
+      "mtime": 1787739323,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 481
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/空山野马 (宿命纯音版)-沈辞墨.mp3",
+      "sha256": "c447d321274d9339f509bd997c4c5559bccc15cc7da7f53ea07419e39154a75e",
+      "size": 8466745,
+      "mtime": 1787739313,
+      "title": "空山野马 (宿命纯音版)",
+      "artist": "沈辞墨",
+      "album": null,
+      "duration": 208
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/空山野马(降速版)-DJ老板.flac",
+      "sha256": "fb5c4eea23883efab997e82e5722e6b00067f799552b5ac16c6bd17cd44ac4b1",
+      "size": 44167948,
+      "mtime": 1787739712,
+      "title": "空山野马(降速版)",
+      "artist": "DJ老板",
+      "album": null,
+      "duration": 226
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/精卫 旧梦散入尘埃 -ProdbyMend 洛诗诗.flac",
+      "sha256": "dfe7474a7fa6623fd9839a8e9e561e0a48ba19b38b88d2bd6dafd4c89f9d132b",
+      "size": 30993273,
+      "mtime": 1787739626,
+      "title": "精卫（旧梦散入尘埃）",
+      "artist": "ProdbyMend 洛诗诗",
+      "album": "精卫（旧梦散入尘埃）",
+      "duration": 143
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/精卫 热播DJ完整版 -相非相-土到极致就是嗨.mp3",
+      "sha256": "e334dac2407ea581a39bb6080ee39b9017e3d2beda94059e2c7276eb958c6479",
+      "size": 3798828,
+      "mtime": 1787739544,
+      "title": "精卫（热播DJ完整版）",
+      "artist": "相非相",
+      "album": "土到极致就是嗨",
+      "duration": 219
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/草蜢 - 半点心.flac",
+      "sha256": "8ff0a97d796eaf1d57969dc041e1b4b0641eff850359e8c138f3aa1c65af3015",
+      "size": 26319651,
+      "mtime": 1787739530,
+      "title": "半点心",
+      "artist": "草蜢",
+      "album": "Grasshopper Ⅳ",
+      "duration": 232
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/西楼爱情故事-李袁杰 Au-西楼爱情故事.mp3",
+      "sha256": "f38a9acb396b15d4881a78eba3b6bc30034c08475f3fdd4184f8f1f309700f6c",
+      "size": 2085284,
+      "mtime": 1787739536,
+      "title": "西楼爱情故事",
+      "artist": "李袁杰&Au",
+      "album": "西楼爱情故事",
+      "duration": 121
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/西楼爱情故事_(独唱版)-李袁杰-西楼爱情故事.mp3",
+      "sha256": "2d9911bea5a603e61c83d755979d677718115f6efdae295243ccb05fa81585c4",
+      "size": 2036788,
+      "mtime": 1787739490,
+      "title": "西楼爱情故事 (独唱版)",
+      "artist": "李袁杰",
+      "album": "西楼爱情故事",
+      "duration": 121
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/豹子号进行曲-M.R.Y麦尔彦.flac",
+      "sha256": "979fd084de617f44db66f36fdd978bf9a1b5cf554f81061af17298a6e54df633",
+      "size": 6322500,
+      "mtime": 1787739221,
+      "title": "豹子号进行曲",
+      "artist": "M.R.Y麦尔彦",
+      "album": null,
+      "duration": 104
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/贝多芬 - 欢乐颂.flac",
+      "sha256": "d71960b892a61e32560ecbc1a06d090bf89e5abcb739a9b4e2d210d7c8349fce",
+      "size": 19525007,
+      "mtime": 1787739510,
+      "title": "欢乐颂",
+      "artist": "贝多芬",
+      "album": "贝多芬",
+      "duration": 184
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/账号已注销_rN_9iTPFASg_140.mp3",
+      "sha256": "1d6383c1cbed26df1bb0855ed33e1888c94f206edaa980fb1dad83a0411ce78f",
+      "size": 3316795,
+      "mtime": 1787739304,
+      "title": "账号已注销",
+      "artist": null,
+      "album": "账号已注销",
+      "duration": 222
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/辞九门回忆(dj降) .m4a",
+      "sha256": "5534ba3ee5adf0d81dcec5a0db030cc11a0f66f9560a297bcf4cd5141148aefc",
+      "size": 3304920,
+      "mtime": 1787739557,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 204
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/辞九门回忆抖音DJ弹鼓版_精彩鑫_浪漫会至死不渝_1.mp3",
+      "sha256": "049953d07ce4f5f57f91e34271ead2f3e66ab5d1841e1cd63dd729954b5cb7f7",
+      "size": 4674750,
+      "mtime": 1787739527,
+      "title": "辞九门回忆(抖音DJ弹鼓版)",
+      "artist": "精彩鑫",
+      "album": "浪漫会至死不渝",
+      "duration": 288
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/邓寓君(等什么君) - 鸳鸯戏.flac",
+      "sha256": "a3329c2477e412807ac6715dc83974ed42df343a9ddf8a66bb058c1fdd0421da",
+      "size": 47467987,
+      "mtime": 1787739723,
+      "title": "鸳鸯戏",
+      "artist": "邓寓君(等什么君)",
+      "album": "鸳鸯戏",
+      "duration": 213
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/鬼新娘 - 杰儿合唱团.mp3",
+      "sha256": "ef14e239242c7874f8f015a8e9d3a1cdfbf0f92d9fbe4d26690883975acbe4f9",
+      "size": 7724070,
+      "mtime": 1787739346,
+      "title": "鬼新娘",
+      "artist": "杰儿合唱团",
+      "album": "一个聚会 香港电影金像奖纪念专辑",
+      "duration": 190
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/鸳鸯戏 DJ - 邓寓君(等什么君)&DJ Wave.flac",
+      "sha256": "53c27511110ace2ddf4862a803f6b2c63f8362d8b78073a860a4c4cb3be49334",
+      "size": 43054970,
+      "mtime": 1787739581,
+      "title": "鸳鸯戏(DJ版)",
+      "artist": "邓寓君(等什么君)&DJ Wave",
+      "album": null,
+      "duration": 311
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/鸳鸯戏-DJ阿布-鸳鸯戏DJ.mp3",
+      "sha256": "dc9a4f6789375f75838f643a6258cad9f0c05d26812b3d95863172df1f7dcd29",
+      "size": 3783396,
+      "mtime": 1787739548,
+      "title": "鸳鸯戏",
+      "artist": "DJ阿布",
+      "album": "鸳鸯戏DJ",
+      "duration": 231
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/鸳鸯戏_DJ_MIX祁厅长进步曲_略略略_鸳鸯戏_DJ_MIX祁厅长进步曲.mp3",
+      "sha256": "4cfde6939acaedf49e645036f1c6fdb4b55120949dd5a499760e91286ee76658",
+      "size": 1302551,
+      "mtime": 1787739539,
+      "title": "鸳鸯戏 (DJ MIX祁厅长进步曲）",
+      "artist": "略略略",
+      "album": "鸳鸯戏（DJ MIX祁厅长进步曲）",
+      "duration": 79
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/黎明前的黑暗-孟颖.flac",
+      "sha256": "36b2eed130f3479f3cb6a282ac844fbe7496de9f8e8a57ee10de90000313f379",
+      "size": 15883224,
+      "mtime": 1787739506,
+      "title": "黎明前的黑暗",
+      "artist": "孟颖",
+      "album": "黎明前的黑暗",
+      "duration": 133
+    },
+    {
+      "path": "/home/liqirui6636/下载/Telegram Desktop/黑产进行去《大雨还在下》 (2).m4a",
+      "sha256": "80a8b11e06c6aaaf024b1701414a6cd3c3ca5ae9a8b1f90addf19b3646746d29",
+      "size": 4148377,
+      "mtime": 1790001236,
+      "title": null,
+      "artist": null,
+      "album": null,
+      "duration": 256
+    }
+  ],
   "min_audio_duration": 15
 }

@@ -3,6 +3,9 @@ import sys
 import re
 import json
 import html
+import hashlib
+import tempfile
+import time
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -13,6 +16,7 @@ from PyQt6.QtGui import (
     QColor,
     QDesktopServices,
     QFont,
+    QIcon,
     QImage,
     QKeySequence,
     QPainter,
@@ -41,12 +45,15 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QSlider,
     QSplitter,
+    QSystemTrayIcon,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 from PIL import Image
 
+import mpris_player
+from metadata_reader import MetadataReader
 from music_scanner import (
     MusicScanWorker,
     format_duration,
@@ -713,6 +720,14 @@ class MediaPlayer(QMainWindow):
         self.tag_original = {}         # 上次读取/保存时的值，用于统计改动
         self.tag_current_path = ""     # 当前可编辑的文件路径
 
+        # 系统媒体控制：MPRIS（桌面媒体控件/耳机按键/playerctl）+ 系统托盘 + 媒体键
+        self.mpris = None
+        self.tray_icon = None
+        self.tray_menu = None
+        self._mpris_art_urls = {}      # path -> 封面 file:// URL
+        self._mpris_length_us = 0      # 上次回传的时长（毫秒→微秒）
+        self._last_media_key = 0.0     # 媒体键去重时间戳
+
         # 全屏播放状态（视频画面 / 音频封面铺满屏幕，ESC 退出）
         self.is_fullscreen = False
         self.fullscreen_window = None
@@ -740,6 +755,13 @@ class MediaPlayer(QMainWindow):
         self.init_ui()
         self.adapt_layout_to_screen()
         self.install_global_shortcuts()
+        self.setup_system_media_control()
+
+        # 系统媒体控制：每秒把播放状态同步给桌面（曲目信息在切换文件时更新）
+        self.mpris_timer = QTimer(self)
+        self.mpris_timer.setInterval(1000)
+        self.mpris_timer.timeout.connect(self.sync_mpris_state)
+        self.mpris_timer.start()
 
         self.timer = QTimer(self)
         self.timer.setInterval(50)
@@ -1387,6 +1409,7 @@ class MediaPlayer(QMainWindow):
         self.lrc_list.hide()
         self.info_panel.clear()
         self.refresh_tag_editor("")
+        self.sync_mpris_state()
 
     def toggle_loop(self):
         self.loop_single = not self.loop_single
@@ -2064,6 +2087,8 @@ class MediaPlayer(QMainWindow):
             QMessageBox.critical(self, "播放失败", "无法播放该网络串流，请检查URL是否正确或网络是否正常")
             return
         self.show_media_info(url, display_name)
+        self.update_mpris_track(url)
+        self.sync_mpris_state()
 
     def open_media(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -2099,6 +2124,7 @@ class MediaPlayer(QMainWindow):
         if not self.is_video:
             self.try_load_lyrics_for(path)
         self.refresh_tag_editor(path)
+        self.update_mpris_track(path)
 
     def play_pause(self):
         if self.media_player.is_playing():
@@ -2107,17 +2133,23 @@ class MediaPlayer(QMainWindow):
             self.media_player.play()
             self.media_player.set_rate(self.cur_speed)
             self.apply_equalizer_to_player()
+        self.sync_mpris_state()
 
     def stop_play(self):
         self.close_fullscreen_on_media_change()
         self.media_player.stop()
         self.slider_pos.setValue(0)
+        self.sync_mpris_state()
 
     def seek_pos(self, val):
         self.media_player.set_time(val)
+        if self.mpris is not None:
+            self.mpris.notify_seeked(int(val) * 1000)
 
     def set_volume(self, vol):
         self.media_player.audio_set_volume(vol)
+        if self.mpris is not None:
+            self.mpris.update_volume(vol / 100.0)
 
     def update_progress_and_lrc(self):
         # 网络串流走低频 update_stream_status，避免高频调用 libvlc 导致 UI 卡顿
@@ -2192,6 +2224,7 @@ class MediaPlayer(QMainWindow):
         if not self.is_video:
             self.try_load_lyrics_for(path)
         self.refresh_tag_editor(path)
+        self.update_mpris_track(path)
 
     # ---------------- 音乐库：文件夹扫描 + SHA256 去重 ----------------
 
@@ -2748,11 +2781,375 @@ class MediaPlayer(QMainWindow):
                 entry[key] = value
         self.add_music_item(entry)
 
+    # ---------------- 系统媒体控制：MPRIS / 系统托盘 / 媒体键 ----------------
+
+    def setup_system_media_control(self):
+        """初始化系统集成：MPRIS 服务 + 系统托盘 + 键盘媒体键"""
+        self.setup_mpris()
+        self.setup_tray_icon()
+        self.install_media_key_shortcuts()
+
+    # ---- MPRIS：让桌面媒体控件 / 耳机按键 / playerctl 能控制播放 ----
+    def setup_mpris(self):
+        """启动 MPRIS 服务（缺少 PyGObject 时静默跳过，不影响播放）"""
+        if not mpris_player.is_available():
+            return
+        self.mpris = mpris_player.MprisController(parent=self)
+        self.mpris.play_pause_requested.connect(self.play_pause)
+        self.mpris.play_requested.connect(self.mpris_play)
+        self.mpris.pause_requested.connect(self.mpris_pause)
+        self.mpris.stop_requested.connect(self.stop_play)
+        self.mpris.next_requested.connect(self.play_next_music)
+        self.mpris.previous_requested.connect(self.play_previous_music)
+        self.mpris.seek_requested.connect(self.mpris_seek_relative)
+        self.mpris.set_position_requested.connect(self.mpris_seek_absolute)
+        self.mpris.volume_requested.connect(self.mpris_set_volume)
+        self.mpris.loop_status_requested.connect(self.mpris_set_loop_status)
+        self.mpris.raise_requested.connect(self.mpris_raise)
+        self.mpris.quit_requested.connect(self.close)
+        if not self.mpris.start():
+            self.mpris = None
+
+    def mpris_play(self):
+        """桌面请求播放"""
+        if not self.media_player.is_playing():
+            self.play_pause()
+
+    def mpris_pause(self):
+        """桌面请求暂停"""
+        if self.media_player.is_playing():
+            self.media_player.pause()
+        self.sync_mpris_state()
+
+    def mpris_seek_relative(self, offset_us):
+        """桌面请求相对跳转（微秒，来自 Seek）"""
+        if not self.cur_media_path or self.is_streaming:
+            return
+        try:
+            target = self.media_player.get_time() + int(offset_us) // 1000
+            total = self.media_player.get_length()
+            if total and total > 0:
+                target = min(target, total)
+            target = max(0, target)
+            self.media_player.set_time(target)
+            if self.mpris is not None:
+                self.mpris.notify_seeked(target * 1000)
+        except Exception:
+            pass
+
+    def mpris_seek_absolute(self, position_us):
+        """桌面请求绝对跳转（微秒，来自 SetPosition）"""
+        if not self.cur_media_path or self.is_streaming:
+            return
+        try:
+            position_us = max(0, int(position_us))
+            self.media_player.set_time(position_us // 1000)
+            if self.mpris is not None:
+                self.mpris.notify_seeked(position_us)
+        except Exception:
+            pass
+
+    def mpris_set_volume(self, volume):
+        """桌面请求设置音量（0.0 ~ 1.0）"""
+        level = int(round(max(0.0, min(1.0, float(volume))) * 100))
+        self.media_player.audio_set_volume(level)
+        self.slider_vol.blockSignals(True)
+        self.slider_vol.setValue(level)
+        self.slider_vol.blockSignals(False)
+        if self.mpris is not None:
+            self.mpris.update_volume(level / 100.0)
+
+    def mpris_set_loop_status(self, status):
+        """桌面请求切换循环模式（None / Track / Playlist）"""
+        self.loop_single = status in ("Track", "Playlist")
+        self.btn_loop.setText("循环(开启)" if self.loop_single else "单曲循环")
+        if self.mpris is not None:
+            self.mpris.update_loop_status("Track" if self.loop_single else "None")
+
+    def mpris_raise(self):
+        """桌面请求把主窗口带到前台"""
+        self.tray_show_window()
+
+    def mpris_art_url(self, path):
+        """给桌面提供封面文件 URL（MPRIS 只接受 URL）
+
+        内嵌封面写到临时缓存文件；没有内嵌封面时回退到默认封面图片。
+        """
+        if not path or not os.path.isfile(path):
+            return None
+        if path in self._mpris_art_urls:
+            return self._mpris_art_urls[path]
+
+        url = None
+        try:
+            image = MetadataReader.extract_cover(path)
+            if image is not None:
+                cache_dir = os.path.join(tempfile.gettempdir(), "ruiplayer-mpris")
+                os.makedirs(cache_dir, exist_ok=True)
+                stamp = f"{path}:{os.path.getmtime(path)}"
+                digest = hashlib.sha1(stamp.encode("utf-8")).hexdigest()[:16]
+                cover_path = os.path.join(cache_dir, f"cover-{digest}.jpg")
+                if not os.path.exists(cover_path):
+                    image.convert("RGB").save(cover_path, "JPEG", quality=90)
+                url = QUrl.fromLocalFile(cover_path).toString()
+        except Exception:
+            url = None
+
+        if url is None:
+            default_path = os.path.join(
+                os.path.dirname(__file__), self.DEFAULT_COVER_FILENAME
+            )
+            if os.path.exists(default_path):
+                url = QUrl.fromLocalFile(default_path).toString()
+
+        self._mpris_art_urls[path] = url
+        return url
+
+    def track_length_us(self, meta=None):
+        """当前曲目时长（微秒）：优先播放器解析结果，其次文件标签"""
+        try:
+            length_ms = self.media_player.get_length()
+        except Exception:
+            length_ms = 0
+        if length_ms and length_ms > 0:
+            return int(length_ms) * 1000
+        if meta and meta.get("duration"):
+            try:
+                return int(meta["duration"]) * 1_000_000
+            except (TypeError, ValueError):
+                return 0
+        return 0
+
+    def update_mpris_track(self, path=None):
+        """把当前曲目信息（标题/艺术家/专辑/时长/封面）回传给桌面"""
+        if self.mpris is None:
+            return
+        path = path or self.cur_media_path
+        if not path:
+            return
+
+        # 网络串流没有本地标签，用地址当标题
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://", path):
+            title = (self.stream_url_input.currentText() or path).strip()
+            self.mpris.update_track(title=title, track_seed=path)
+            self._mpris_length_us = 0
+            return
+
+        try:
+            meta = read_track_meta(path) or {}
+        except Exception:
+            meta = {}
+        title = meta.get("title") or os.path.splitext(os.path.basename(path))[0]
+        length_us = self.track_length_us(meta)
+        self.mpris.update_track(
+            title=title,
+            artist=meta.get("artist"),
+            album=meta.get("album"),
+            length_us=length_us,
+            art_url=self.mpris_art_url(path),
+            track_seed=path,
+        )
+        self._mpris_length_us = length_us
+        self.update_tray_tooltip()
+
+    def sync_mpris_state(self):
+        """每秒把播放状态 / 进度 / 音量同步给桌面"""
+        if self.mpris is None:
+            return
+
+        try:
+            playing = bool(self.media_player.is_playing())
+        except Exception:
+            playing = False
+        if playing:
+            status = "Playing"
+        elif self.cur_media_path:
+            status = "Paused"
+        else:
+            status = "Stopped"
+
+        queue = self.music_queue_paths()
+        has_queue = len(queue) > 1 and self.cur_media_path in queue
+        self.mpris.update_playback(
+            status,
+            next=has_queue,
+            previous=has_queue,
+            seek=bool(self.cur_media_path) and not self.is_streaming,
+            play=bool(self.cur_media_path),
+            pause=bool(self.cur_media_path),
+        )
+
+        try:
+            position_ms = self.media_player.get_time()
+        except Exception:
+            position_ms = 0
+        if position_ms and position_ms > 0:
+            self.mpris.update_position(int(position_ms) * 1000)
+
+        try:
+            volume = self.media_player.audio_get_volume()
+        except Exception:
+            volume = None
+        if volume is not None and volume >= 0:
+            self.mpris.update_volume(volume / 100.0)
+
+        # 曲目总时长往往解析得比较晚，发现明显变化就重新回传一次
+        if self.cur_media_path and not self.is_streaming:
+            length_us = self.track_length_us()
+            if length_us and abs(length_us - self._mpris_length_us) > 1_000_000:
+                self.update_mpris_track(self.cur_media_path)
+
+        self.update_tray_tooltip()
+
+    # ---- 上下曲：按音乐库列表顺序 ----
+    def music_queue_paths(self):
+        """音乐库列表中当前可见（未被搜索过滤掉）的曲目，按列表顺序"""
+        paths = []
+        for i in range(self.music_list.count()):
+            item = self.music_list.item(i)
+            if item is None or item.isHidden():
+                continue
+            path = item.data(Qt.ItemDataRole.UserRole)
+            if path:
+                paths.append(path)
+        return paths
+
+    def music_queue_position(self):
+        """当前曲目在播放队列中的下标；不在队列里返回 None"""
+        queue = self.music_queue_paths()
+        return queue.index(self.cur_media_path) if self.cur_media_path in queue else None
+
+    def play_queue_offset(self, step):
+        """按音乐库列表顺序切歌（step=+1 下一首，-1 上一首），首尾循环"""
+        queue = self.music_queue_paths()
+        if not queue:
+            QMessageBox.information(
+                self, "音乐库为空",
+                "上一曲/下一曲按音乐库列表顺序切换，请先在“音乐库”标签页扫描音乐文件夹。",
+            )
+            return
+        index = self.music_queue_position()
+        if index is None:
+            target = queue[0] if step > 0 else queue[-1]
+        else:
+            target = queue[(index + step) % len(queue)]
+        if not os.path.exists(target):
+            QMessageBox.warning(self, "文件不存在", f"该文件已被移动或删除：\n{target}")
+            return
+        self.open_media_from_path(target)
+
+    def play_next_music(self):
+        """下一曲（媒体键 / 桌面媒体控件 / 托盘菜单共用）"""
+        self.play_queue_offset(1)
+
+    def play_previous_music(self):
+        """上一曲"""
+        self.play_queue_offset(-1)
+
+    # ---- 系统托盘 ----
+    def setup_tray_icon(self):
+        """系统托盘图标 + 右键菜单"""
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return
+        icon = QIcon()
+        icon_path = os.path.join(os.path.dirname(__file__), "qrstudio-icon.png")
+        if os.path.exists(icon_path):
+            icon = QIcon(icon_path)
+        elif self.custom_default_cover is not None:
+            icon = QIcon(self.custom_default_cover)
+        self.tray_icon = QSystemTrayIcon(icon, self)
+        self.tray_icon.setToolTip("RuiPlayer 多媒体播放器")
+
+        menu = QMenu(self)
+        act_show = menu.addAction("显示主窗口")
+        act_show.triggered.connect(self.tray_show_window)
+        menu.addSeparator()
+        act_play = menu.addAction("播放/暂停")
+        act_play.triggered.connect(self.play_pause)
+        act_prev = menu.addAction("上一曲")
+        act_prev.triggered.connect(self.play_previous_music)
+        act_next = menu.addAction("下一曲")
+        act_next.triggered.connect(self.play_next_music)
+        act_stop = menu.addAction("停止")
+        act_stop.triggered.connect(self.stop_play)
+        menu.addSeparator()
+        act_quit = menu.addAction("退出")
+        act_quit.triggered.connect(self.close)
+
+        self.tray_menu = menu
+        self.tray_icon.setContextMenu(menu)
+        self.tray_icon.activated.connect(self.on_tray_activated)
+        self.tray_icon.show()
+        self.update_tray_tooltip()
+
+    def on_tray_activated(self, reason):
+        """双击托盘图标显示主窗口"""
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self.tray_show_window()
+
+    def tray_show_window(self):
+        """把主窗口带到前台（同时供 MPRIS Raise 使用）"""
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def update_tray_tooltip(self):
+        """托盘提示显示当前曲目与播放状态"""
+        if self.tray_icon is None:
+            return
+        if not self.cur_media_path:
+            self.tray_icon.setToolTip("RuiPlayer 多媒体播放器")
+            return
+        try:
+            playing = bool(self.media_player.is_playing())
+        except Exception:
+            playing = False
+        name = (self.cur_media_path if self.is_streaming
+                else os.path.basename(self.cur_media_path))
+        self.tray_icon.setToolTip(
+            f"RuiPlayer · {'播放中' if playing else '已暂停'}\n{name}"
+        )
+
+    # ---- 键盘媒体键 ----
+    def install_media_key_shortcuts(self):
+        """注册键盘媒体键（播放/暂停、上一曲、下一曲、停止）
+
+        桌面（KDE/GNOME）一般会把媒体键转发给 MPRIS 播放器，按键不会到达窗口；
+        这里额外保留一份应用内快捷键，覆盖未配置全局转发的情况。
+        """
+        bindings = (
+            (Qt.Key.Key_MediaTogglePlayPause, self.play_pause),
+            (Qt.Key.Key_MediaPlay, self.play_pause),
+            (Qt.Key.Key_MediaPause, self.play_pause),
+            (Qt.Key.Key_MediaStop, self.stop_play),
+            (Qt.Key.Key_MediaNext, self.play_next_music),
+            (Qt.Key.Key_MediaPrevious, self.play_previous_music),
+        )
+        self.media_shortcuts = []
+        for key, handler in bindings:
+            shortcut = QShortcut(QKeySequence(key), self)
+            shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+            shortcut.activated.connect(lambda h=handler: self.handle_media_key(h))
+            self.media_shortcuts.append(shortcut)
+
+    def handle_media_key(self, handler):
+        """媒体键去重：同一按键的重复事件短时间内只执行一次"""
+        now = time.monotonic()
+        if now - self._last_media_key < 0.3:
+            return
+        self._last_media_key = now
+        handler()
+
     def closeEvent(self, event):
-        """退出前停止后台扫描线程，避免线程仍在读文件时被销毁"""
+        """退出前停止后台扫描线程与 MPRIS 服务，避免线程仍在工作时被销毁"""
         if self.scan_worker is not None and self.scan_worker.isRunning():
             self.scan_worker.requestInterruption()
             self.scan_worker.wait(3000)
+        if self.mpris is not None:
+            self.mpris.stop()
+            self.mpris = None
+        if self.tray_icon is not None:
+            self.tray_icon.hide()
         self.persist_music_library()
         super().closeEvent(event)
 

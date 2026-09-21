@@ -22,12 +22,16 @@
 - ⌨️ 丰富的键盘快捷键
 - 📡 网络串流播放（HTTP、RTSP等）
 - 📺 M3U/M3U8 电视台列表（支持上传本地文件或链接自动识别，列出频道点台播放，支持搜索过滤）
+- 🎛️ 系统媒体控制（MPRIS：桌面媒体控件/锁屏/蓝牙耳机按键/playerctl，另有系统托盘与键盘媒体键）
 
 ## 安装依赖
 
 ```bash
 pip install pyqt6 python-vlc mutagen pillow pywin32 python-dotenv
 ```
+
+> Linux 下的系统媒体控制（MPRIS）需要 PyGObject：`sudo apt install python3-gi`。
+> 大多数桌面发行版已预装；缺少时程序照常运行，只是桌面媒体控件无法控制它。
 
 ## 运行
 
@@ -78,6 +82,28 @@ python p2.py
 
 > 容器支持：ID3v2（MP3 / WAV / AIFF）、VorbisComment（FLAC / OGG / Opus）、MP4（M4A）。
 > WMA、APE 等暂不支持写入，界面会直接提示。
+
+## 系统媒体控制（Linux）
+
+程序启动后会以 `org.mpris.MediaPlayer2.ruiplayer` 注册到 D-Bus，因此可以使用：
+
+- **桌面媒体控件**：KDE/GNOME 顶栏的播放条、锁屏界面、通知中心的媒体卡片
+- **耳机/键盘按键**：蓝牙耳机与键盘上的播放/暂停、上一曲、下一曲（由桌面转发给 MPRIS 播放器）
+- **命令行控制**：
+  ```bash
+  gdbus call --session --dest org.mpris.MediaPlayer2.ruiplayer \
+      --object-path /org/mpris/MediaPlayer2 \
+      --method org.mpris.MediaPlayer2.Player.PlayPause
+  # 装了 playerctl 的话：playerctl -p ruiplayer play-pause
+  ```
+- **系统托盘图标**：右键菜单可播放/暂停、上一曲、下一曲、停止、显示主窗口、退出；双击图标显示主窗口
+- **回传给桌面的信息**：标题、艺术家、专辑、时长、封面（内嵌封面会写入临时缓存供桌面读取）
+
+关于上一曲/下一曲：**按右侧“音乐库”标签页的列表顺序**切换（跟随当前的搜索过滤结果），
+到头会循环。列表为空时会提示先去扫描音乐文件夹。
+
+> 媒体键有两条路径（桌面转发给 MPRIS、应用内快捷键），程序对应用内快捷键做了 0.3 秒去重，
+> 避免一次按键把“播放/暂停”翻转两次。
 
 ## 测试
 
