@@ -32,8 +32,9 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QMainWindow,
+    QMenu,
+    QMessageBox,
     QPushButton,
     QSlider,
     QSplitter,
@@ -42,6 +43,14 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from PIL import Image
+
+from music_scanner import (
+    MusicScanWorker,
+    format_duration,
+    format_size,
+    track_display_text,
+    track_tooltip,
+)
 
 try:
     from tg_music import HAS_TELETHON, TelegramMusicDialog
@@ -166,6 +175,14 @@ def get_embedded_lyrics(file_path):
 # 视频扩展名：本地文件与网络串流分开判定
 LOCAL_VIDEO_EXTS = (".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm", ".mpeg", ".mpg")
 STREAM_VIDEO_EXTS = LOCAL_VIDEO_EXTS + (".ts", ".m3u8")
+
+# 音乐库“短音频”过滤预设：(显示文本, 秒数)；0 表示不过滤
+# 时长短于此值的文件（多为系统音效/提示音）不入库，但不会被从磁盘删除
+MIN_DURATION_CHOICES = (
+    ("不过滤", 0), ("5 秒", 5), ("10 秒", 10),
+    ("15 秒", 15), ("30 秒", 30), ("60 秒", 60),
+)
+DEFAULT_MIN_DURATION = 30
 
 
 # GitHub 网页(blob/raw)链接 → raw 直链，供网络串流输入框使用
@@ -627,7 +644,7 @@ class MediaPlayer(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("多媒体播放器")
+        self.setWindowTitle("RuiPlayer - 多媒体播放器")
         self.resize(1024, 600)
         self.setWindowState(Qt.WindowState.WindowMaximized)
 
@@ -669,6 +686,16 @@ class MediaPlayer(QMainWindow):
         self.network_manager = QNetworkAccessManager(self)
         self.channel_dialog = None
         self.tg_dialog = None
+
+        # 音乐库（右侧“音乐库”标签页）：文件夹扫描 + SHA256 内容去重
+        self.library_folder_history = load_music_folders()
+        self.library_entries, self.library_hashes = load_music_library()
+        self.library_items = {}        # path -> QListWidgetItem
+        self.duplicate_records = []    # 上次扫描中因内容重复被跳过的文件
+        self.short_records = []        # 上次扫描中因时长过短被跳过的文件
+        self._last_min_duration = 0    # 上次扫描使用的短音频阀值
+        self.scan_worker = None
+        self._scan_stats = None
 
         # 全屏播放状态（视频画面 / 音频封面铺满屏幕，ESC 退出）
         self.is_fullscreen = False
@@ -941,9 +968,12 @@ class MediaPlayer(QMainWindow):
         self.btn_equalizer.clicked.connect(self.open_equalizer_dialog)
         right_layout.addWidget(self.btn_equalizer)
 
-        # 右侧分类标签页：串流/设置（已合并）、媒体信息
+        # 右侧分类标签页：串流/设置（已合并）、音乐库、媒体信息
         self.right_tabs = QTabWidget()
         self.right_tabs.setDocumentMode(True)
+        # 右侧面板较窄：压缩标签内边距，尽量让三个标签同时可见
+        # （窗口很窄时 Qt 会自动给标签栏加滚动箭头）
+        self.right_tabs.tabBar().setStyleSheet("QTabBar::tab { padding: 4px 8px; }")
 
         # ---- 标签页 1：串流 / 设置 ----
         tab_stream = QWidget()
@@ -985,7 +1015,102 @@ class MediaPlayer(QMainWindow):
 
         self.right_tabs.addTab(tab_stream, "串流/设置")
 
-        # ---- 标签页 2：媒体信息 ----
+        # ---- 标签页 2：音乐库（指定文件夹扫描 + SHA256 去重） ----
+        tab_library = QWidget()
+        tl_layout = QVBoxLayout(tab_library)
+        tl_layout.setSpacing(8)
+        tl_layout.setContentsMargins(0, 6, 0, 0)
+
+        folder_row = QHBoxLayout()
+        folder_row.setSpacing(6)
+        self.btn_library_add = QPushButton("添加文件夹")
+        self.btn_library_add.setToolTip("选择要扫描的音乐文件夹（可添加多个）")
+        self.btn_library_remove = QPushButton("移除文件夹")
+        self.btn_library_remove.setToolTip("从待扫描列表移除当前文件夹（不会删除磁盘文件）")
+        folder_row.addWidget(self.btn_library_add)
+        folder_row.addWidget(self.btn_library_remove)
+        tl_layout.addLayout(folder_row)
+
+        self.library_folder_combo = QComboBox()
+        self.library_folder_combo.setEditable(True)
+        self.library_folder_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.library_folder_combo.setToolTip("待扫描的文件夹；扫描时全部合并，并按文件内容去重")
+        tl_layout.addWidget(self.library_folder_combo)
+
+        scan_row = QHBoxLayout()
+        scan_row.setSpacing(6)
+        self.btn_library_scan = QPushButton("扫描")
+        self.btn_library_scan.setToolTip("递归扫描以上文件夹，按 SHA256 校验内容去重后加入列表")
+        self.btn_library_stop = QPushButton("停止")
+        self.btn_library_stop.setEnabled(False)
+        scan_row.addWidget(self.btn_library_scan)
+        scan_row.addWidget(self.btn_library_stop)
+        scan_row.addStretch()
+        tl_layout.addLayout(scan_row)
+
+        option_row = QHBoxLayout()
+        option_row.setSpacing(6)
+        self.cbx_library_dedup = QCheckBox("SHA256去重")
+        self.cbx_library_dedup.setChecked(True)
+        self.cbx_library_dedup.setToolTip("勾选：内容相同的文件只保留一首；取消：仅按文件路径去重")
+        self.cbx_library_min_duration = QComboBox()
+        for label, seconds in MIN_DURATION_CHOICES:
+            self.cbx_library_min_duration.addItem(label, seconds)
+        self.cbx_library_min_duration.setToolTip(
+            "短于该时长的文件不入库（多是系统音效/提示音）；\n"
+            "无法读取时长的文件一律保留。\n"
+            "只是不加入列表，不会删除磁盘文件。"
+        )
+        saved_min = load_min_duration()
+        min_index = self.cbx_library_min_duration.findData(saved_min)
+        if min_index < 0:
+            min_index = self.cbx_library_min_duration.findData(DEFAULT_MIN_DURATION)
+        self.cbx_library_min_duration.setCurrentIndex(max(0, min_index))
+        option_row.addWidget(self.cbx_library_dedup)
+        option_row.addWidget(QLabel("短音频"))
+        option_row.addWidget(self.cbx_library_min_duration)
+        option_row.addStretch()
+        tl_layout.addLayout(option_row)
+
+        self.library_search = QLineEdit()
+        self.library_search.setPlaceholderText("搜索标题/艺术家/路径…")
+        tl_layout.addWidget(self.library_search)
+
+        self.music_list = QListWidget()
+        self.music_list.setToolTip("双击播放；右键可播放 / 打开所在文件夹 / 移除")
+        self.music_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        tl_layout.addWidget(self.music_list, stretch=1)
+
+        list_row = QHBoxLayout()
+        list_row.setSpacing(6)
+        self.btn_library_remove_item = QPushButton("移除选中")
+        self.btn_library_clear = QPushButton("清空列表")
+        self.btn_library_dups = QPushButton("跳过项")
+        self.btn_library_dups.setToolTip("查看上次扫描中因内容重复或时长过短而未入库的文件")
+        list_row.addWidget(self.btn_library_remove_item)
+        list_row.addWidget(self.btn_library_clear)
+        list_row.addWidget(self.btn_library_dups)
+        list_row.addStretch()
+        tl_layout.addLayout(list_row)
+
+        self.library_status = QLabel("尚未扫描")
+        self.library_status.setWordWrap(True)
+        tl_layout.addWidget(self.library_status)
+
+        self.btn_library_add.clicked.connect(self.choose_library_folder)
+        self.btn_library_remove.clicked.connect(self.remove_library_folder)
+        self.btn_library_scan.clicked.connect(self.start_music_scan)
+        self.btn_library_stop.clicked.connect(self.stop_music_scan)
+        self.library_search.textChanged.connect(self.filter_music_list)
+        self.music_list.itemDoubleClicked.connect(self.play_selected_music)
+        self.music_list.customContextMenuRequested.connect(self.on_music_list_menu)
+        self.btn_library_remove_item.clicked.connect(self.remove_selected_music)
+        self.btn_library_clear.clicked.connect(self.clear_music_library)
+        self.btn_library_dups.clicked.connect(self.show_skipped_records)
+
+        self.right_tabs.addTab(tab_library, "音乐库")
+
+        # ---- 标签页 3：媒体信息 ----
         self.tab_info = QWidget()
         ti_layout = QVBoxLayout(self.tab_info)
         ti_layout.setContentsMargins(0, 6, 0, 0)
@@ -1023,6 +1148,9 @@ class MediaPlayer(QMainWindow):
 
         splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
+
+        # 恢复上次保存的扫描文件夹与音乐库列表
+        self.populate_saved_music_library()
 
     def adapt_layout_to_screen(self):
         """根据屏幕分辨率自适应：窗口尺寸、封面大小、左右 7:3 比例、字号、缩放"""
@@ -1105,7 +1233,7 @@ class MediaPlayer(QMainWindow):
 
     def open_qrstudio_link(self, event):
         """打开项目主页"""
-        QDesktopServices.openUrl(QUrl("https://github.com/liqirui1145-create/player"))
+        QDesktopServices.openUrl(QUrl("https://github.com/liqirui1145-create/RuiPlayer"))
 
     def toggle_equalizer(self, enabled):
         self.equalizer_enabled = enabled
@@ -2032,6 +2160,364 @@ class MediaPlayer(QMainWindow):
         if not self.is_video:
             self.try_load_lyrics_for(path)
 
+    # ---------------- 音乐库：文件夹扫描 + SHA256 去重 ----------------
+
+    def populate_saved_music_library(self):
+        """把上次保存的扫描文件夹与音乐条目恢复到界面"""
+        for folder in self.library_folder_history:
+            if self.library_folder_combo.findText(folder) < 0:
+                self.library_folder_combo.addItem(folder)
+        if self.library_folder_combo.count() > 0:
+            self.library_folder_combo.setCurrentIndex(0)
+        for entry in list(self.library_entries.values()):
+            self.add_music_item(entry)
+        if self.music_list.count() > 1:
+            self.music_list.sortItems()
+        self.update_library_status()
+
+    def library_folders(self):
+        """当前待扫描文件夹列表（去重、保序，含手动输入的路径）"""
+        folders = []
+        for i in range(self.library_folder_combo.count()):
+            folder = self.library_folder_combo.itemText(i).strip()
+            if folder and folder not in folders:
+                folders.append(folder)
+        typed = self.library_folder_combo.currentText().strip()
+        if typed and typed not in folders:
+            folders.append(typed)
+        return folders
+
+    def choose_library_folder(self):
+        """选择要扫描的音乐文件夹并加入下拉框"""
+        start = self.library_folder_combo.currentText().strip()
+        if not os.path.isdir(start):
+            start = os.path.expanduser("~")
+        folder = QFileDialog.getExistingDirectory(self, "选择音乐文件夹", start)
+        if not folder:
+            return
+        folder = os.path.abspath(folder)
+        if self.library_folder_combo.findText(folder) < 0:
+            self.library_folder_combo.addItem(folder)
+        self.library_folder_combo.setCurrentText(folder)
+        save_music_folders(self.library_folders())
+        self.update_library_status(f"已添加文件夹：{folder}")
+
+    def remove_library_folder(self):
+        """从下拉框移除当前文件夹（不删除磁盘文件）"""
+        index = self.library_folder_combo.currentIndex()
+        if index < 0:
+            QMessageBox.information(self, "提示", "下拉框中没有可移除的文件夹。")
+            return
+        removed = self.library_folder_combo.itemText(index)
+        self.library_folder_combo.removeItem(index)
+        save_music_folders(self.library_folders())
+        self.update_library_status(f"已移除文件夹：{removed}")
+
+    def start_music_scan(self):
+        """启动后台扫描：递归收集音频 → 计算 SHA256 → 内容去重入库"""
+        if self.scan_worker is not None and self.scan_worker.isRunning():
+            QMessageBox.information(self, "提示", "扫描正在进行，可点击“停止”中断。")
+            return
+
+        folders = self.library_folders()
+        if not folders:
+            QMessageBox.information(
+                self, "提示", "请先点击“添加文件夹”选择要扫描的音乐文件夹。"
+            )
+            return
+
+        valid = [f for f in folders if os.path.isdir(f)]
+        missing = [f for f in folders if not os.path.isdir(f)]
+        if missing:
+            QMessageBox.warning(
+                self, "文件夹不可用",
+                "以下文件夹不存在或无法访问，将被跳过：\n" + "\n".join(missing[:5]),
+            )
+        if not valid:
+            return
+
+        save_music_folders(valid)
+        self.duplicate_records = []
+        self.short_records = []
+        self._scan_stats = None
+
+        # “短音频”阈值：时长短于此值的文件（多是系统音效）不入库；0 表示不过滤
+        try:
+            min_duration = int(self.cbx_library_min_duration.currentData() or 0)
+        except (TypeError, ValueError):
+            min_duration = DEFAULT_MIN_DURATION
+        self._last_min_duration = min_duration
+        save_min_duration(min_duration)
+
+        self.scan_worker = MusicScanWorker(
+            valid,
+            known_entries=self.library_entries,  # 未变化文件复用历史 SHA256
+            known_hashes=self.library_hashes,
+            dedup=self.cbx_library_dedup.isChecked(),
+            min_duration=min_duration,
+            parent=self,
+        )
+        self.scan_worker.file_found.connect(self.add_music_item)
+        self.scan_worker.duplicate_found.connect(self.on_music_duplicate_found)
+        self.scan_worker.short_found.connect(self.on_music_short_found)
+        self.scan_worker.progress.connect(self.on_music_scan_progress)
+        self.scan_worker.finished_scan.connect(self.on_music_scan_finished)
+        self.scan_worker.finished.connect(self.on_music_scan_thread_done)
+
+        self.btn_library_scan.setEnabled(False)
+        self.btn_library_stop.setEnabled(True)
+        self.update_library_status("扫描中…")
+        self.scan_worker.start()
+
+    def stop_music_scan(self):
+        """请求停止扫描（线程会在当前文件处理完后退出）"""
+        if self.scan_worker is not None and self.scan_worker.isRunning():
+            self.scan_worker.requestInterruption()
+            self.btn_library_stop.setEnabled(False)
+            self.update_library_status("正在停止…")
+
+    def on_music_scan_progress(self, done, total):
+        """扫描进度回报"""
+        self.update_library_status(f"扫描中… {done}/{total}" if total else "扫描中…")
+
+    def add_music_item(self, entry):
+        """把扫描结果写入列表：新路径新增条目，已有路径更新显示"""
+        path = entry.get("path")
+        if not path:
+            return
+        item = self.library_items.get(path)
+        if item is None:
+            item = QListWidgetItem()
+            item.setData(Qt.ItemDataRole.UserRole, path)
+            self.music_list.addItem(item)
+            self.library_items[path] = item
+        self.library_entries[path] = entry
+        sha = entry.get("sha256")
+        if sha:
+            self.library_hashes[sha] = path
+        item.setText(track_display_text(entry))
+        item.setToolTip(track_tooltip(entry))
+        self.apply_music_filter_to(item)
+
+    def on_music_duplicate_found(self, record):
+        """记录一个因内容重复被跳过的文件"""
+        self.duplicate_records.append(record)
+
+    def on_music_short_found(self, record):
+        """记录一个因时长过短（系统音效等）被跳过的文件"""
+        self.short_records.append(record)
+
+    def on_music_scan_finished(self, stats):
+        """扫描结束：排序、落盘、刷新状态"""
+        self._scan_stats = stats
+        self.btn_library_scan.setEnabled(True)
+        self.btn_library_stop.setEnabled(False)
+        if self.music_list.count() > 1:
+            self.music_list.sortItems()
+        self.persist_music_library()
+
+        summary = (
+            f"新增 {stats.get('added', 0)}，已在库 {stats.get('existing', 0)}，"
+            f"重复跳过 {stats.get('duplicate', 0)}"
+        )
+        if stats.get("too_short"):
+            summary += f"，短音频跳过 {stats.get('too_short', 0)}"
+        if stats.get("failed"):
+            summary += f"，读取失败 {stats.get('failed', 0)}"
+        summary = ("扫描已停止：" if stats.get("cancelled") else "扫描完成：") + summary
+        self.update_library_status(summary)
+
+    def on_music_scan_thread_done(self):
+        """线程真正结束后释放对象，避免下次扫描与残留线程冲突"""
+        worker = self.scan_worker
+        self.scan_worker = None
+        if worker is not None:
+            worker.deleteLater()
+
+    def persist_music_library(self):
+        """把音乐库与 SHA256 索引写入 ui_settings.json"""
+        persist_music_library(self.library_entries)
+
+    def update_library_status(self, prefix=None):
+        """刷新底部状态标签：库容量 + 最近一次扫描结果"""
+        total = len(self.library_entries)
+        size = sum((e.get("size") or 0) for e in self.library_entries.values())
+        text = f"共 {total} 首 · {format_size(size)}"
+        self.library_status.setText(f"{prefix}\n{text}" if prefix else text)
+
+        details = []
+        stats = self._scan_stats
+        if stats:
+            details.append(
+                f"上次扫描：{stats.get('total', 0)} 个文件，新增 {stats.get('added', 0)}，"
+                f"已存在 {stats.get('existing', 0)}，重复跳过 {stats.get('duplicate', 0)}，"
+                f"短音频跳过 {stats.get('too_short', 0)}，失败 {stats.get('failed', 0)}"
+            )
+        if self.duplicate_records or self.short_records:
+            details.append(
+                f"跳过 {len(self.duplicate_records)} 个重复 + "
+                f"{len(self.short_records)} 个短音频（点击“跳过项”查看详情）"
+            )
+        self.library_status.setToolTip("\n".join(details))
+
+    def apply_music_filter_to(self, item):
+        """对单个列表项应用当前搜索关键字"""
+        keyword = self.library_search.text().strip().lower()
+        if not keyword:
+            item.setHidden(False)
+            return
+        haystack = f"{item.text()}\n{item.toolTip()}".lower()
+        item.setHidden(keyword not in haystack)
+
+    def filter_music_list(self, _text=""):
+        """按关键字过滤音乐列表（匹配标题、艺术家与完整路径）"""
+        for i in range(self.music_list.count()):
+            self.apply_music_filter_to(self.music_list.item(i))
+
+    def play_selected_music(self, item=None):
+        """播放列表中选中的音乐"""
+        if item is None:
+            item = self.music_list.currentItem()
+        if item is None:
+            QMessageBox.information(self, "提示", "请先在列表中选择要播放的音乐。")
+            return
+        path = item.data(Qt.ItemDataRole.UserRole)
+        if not path or not os.path.exists(path):
+            QMessageBox.warning(
+                self, "文件不存在", f"该文件已被移动或删除：\n{path}"
+            )
+            return
+        self.open_media_from_path(path)
+
+    def reveal_music_file(self):
+        """在系统文件管理器中定位当前选中的音乐"""
+        item = self.music_list.currentItem()
+        if item is None:
+            return
+        path = item.data(Qt.ItemDataRole.UserRole)
+        if not path or not os.path.exists(path):
+            QMessageBox.warning(self, "文件不存在", f"找不到该文件：\n{path}")
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
+
+    def remove_selected_music(self, *_):
+        """仅从列表移除选中条目（不删除磁盘文件）"""
+        items = self.music_list.selectedItems()
+        if not items:
+            QMessageBox.information(self, "提示", "请先在列表中选择要移除的条目。")
+            return
+        for item in items:
+            path = item.data(Qt.ItemDataRole.UserRole)
+            row = self.music_list.row(item)
+            if row >= 0:
+                self.music_list.takeItem(row)
+            self.library_items.pop(path, None)
+            self.library_entries.pop(path, None)
+        self.rebuild_library_hashes()
+        self.persist_music_library()
+        self.update_library_status(f"已移除 {len(items)} 首")
+
+    def clear_music_library(self):
+        """清空音乐库列表（不删除磁盘文件）"""
+        if not self.library_entries:
+            return
+        reply = QMessageBox.question(
+            self, "清空列表",
+            f"确定从列表移除全部 {len(self.library_entries)} 首音乐？\n"
+            "（不会删除磁盘上的文件）",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        self.music_list.clear()
+        self.library_entries.clear()
+        self.library_items.clear()
+        self.library_hashes.clear()
+        self.duplicate_records = []
+        self.short_records = []
+        self._scan_stats = None
+        self.persist_music_library()
+        self.update_library_status("列表已清空")
+
+    def rebuild_library_hashes(self):
+        """按当前条目重建 SHA256 索引（移除条目后调用）"""
+        hashes = {}
+        for path, entry in self.library_entries.items():
+            sha = entry.get("sha256")
+            if sha:
+                hashes.setdefault(sha, path)
+        self.library_hashes = hashes
+
+    def show_skipped_records(self):
+        """查看上次扫描中被跳过的文件：内容重复 / 时长过短"""
+        dups, shorts = self.duplicate_records, self.short_records
+        if not dups and not shorts:
+            QMessageBox.information(
+                self, "跳过项", "上次扫描没有跳过任何文件。"
+            )
+            return
+
+        sections = []
+        if dups:
+            lines = [f"内容重复（SHA256 相同）{len(dups)} 个，仅保留首个："]
+            for r in dups[:20]:
+                lines.append(
+                    f"{os.path.basename(r['path'])}\n"
+                    f"  跳过：{r['path']}\n  保留：{r['original']}"
+                )
+            if len(dups) > 20:
+                lines.append(f"…（共 {len(dups)} 条，仅显示前 20 条）")
+            sections.append("\n".join(lines))
+        if shorts:
+            label = (f"短于 {self._last_min_duration} 秒" if self._last_min_duration
+                     else "时长过短")
+            lines = [f"时长过短（{label}）{len(shorts)} 个，未入库："]
+            for r in shorts[:20]:
+                lines.append(
+                    f"{format_duration(r.get('duration')) or '?'}  {r['path']}"
+                )
+            if len(shorts) > 20:
+                lines.append(f"…（共 {len(shorts)} 条，仅显示前 20 条）")
+            lines.append("如需收录，把“短音频”改为“不过滤”后重新扫描即可")
+            sections.append("\n".join(lines))
+
+        box = QMessageBox(self)
+        box.setWindowTitle("跳过项")
+        box.setIcon(QMessageBox.Icon.Information)
+        box.setText(f"重复 {len(dups)} 个 · 短音频 {len(shorts)} 个")
+        box.setInformativeText("这些文件都未加入列表，磁盘上的文件未做任何改动。")
+        box.setDetailedText("\n\n".join(sections))
+        box.exec()
+
+    def on_music_list_menu(self, pos):
+        """音乐列表右键菜单"""
+        item = self.music_list.itemAt(pos)
+        if item is None:
+            return
+        self.music_list.setCurrentItem(item)
+        menu = QMenu(self.music_list)
+        act_play = menu.addAction("播放")
+        act_reveal = menu.addAction("打开所在文件夹")
+        menu.addSeparator()
+        act_remove = menu.addAction("从列表移除")
+        chosen = menu.exec(self.music_list.viewport().mapToGlobal(pos))
+        if chosen is None:
+            return
+        if chosen == act_play:
+            self.play_selected_music(item)
+        elif chosen == act_reveal:
+            self.reveal_music_file()
+        elif chosen == act_remove:
+            self.remove_selected_music()
+
+    def closeEvent(self, event):
+        """退出前停止后台扫描线程，避免线程仍在读文件时被销毁"""
+        if self.scan_worker is not None and self.scan_worker.isRunning():
+            self.scan_worker.requestInterruption()
+            self.scan_worker.wait(3000)
+        self.persist_music_library()
+        super().closeEvent(event)
+
 
 class EqualizerDialog(QDialog):
     """均衡器窗口：所有调节实时生效，非假窗口"""
@@ -2381,6 +2867,96 @@ def save_lyrics_meta_pref(enabled):
     """保存“从元数据读取歌词”这一偏好"""
     data = load_settings()
     data["lyrics_from_metadata"] = bool(enabled)
+    save_settings(data)
+
+
+# 音乐库条目上限：避免 ui_settings.json 随扫描无限膨胀
+MAX_LIBRARY_ENTRIES = 20000
+
+
+def load_music_folders():
+    """读取上次扫描使用的文件夹列表"""
+    folders = load_settings().get("music_folders")
+    if not isinstance(folders, list):
+        return []
+    return [f for f in folders if isinstance(f, str) and f.strip()]
+
+
+def save_music_folders(folders):
+    """保存扫描文件夹列表（保留最近 50 个）"""
+    data = load_settings()
+    data["music_folders"] = [f for f in (folders or []) if f][:50]
+    save_settings(data)
+
+
+def load_min_duration():
+    """读取音乐库“短音频”过滤阈值（秒）；0 表示不过滤"""
+    try:
+        value = int(load_settings().get("min_audio_duration", DEFAULT_MIN_DURATION))
+    except (TypeError, ValueError):
+        return DEFAULT_MIN_DURATION
+    return max(0, value)
+
+
+def save_min_duration(seconds):
+    """保存音乐库“短音频”过滤阈值"""
+    try:
+        seconds = max(0, int(seconds))
+    except (TypeError, ValueError):
+        return
+    data = load_settings()
+    data["min_audio_duration"] = seconds
+    save_settings(data)
+
+
+def load_music_library():
+    """读取已保存的音乐库。
+
+    返回 (entries, hashes)：
+    - entries: path -> 条目字典（含 sha256/size/mtime/标题等）
+    - hashes:  sha256 -> 库中首次出现该内容的路径，用于下次扫描快速判重
+    """
+    raw = load_settings().get("music_library")
+    entries = {}
+    hashes = {}
+    if not isinstance(raw, list):
+        return entries, hashes
+
+    def as_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    for item in raw[:MAX_LIBRARY_ENTRIES]:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        if not isinstance(path, str) or not path:
+            continue
+        entry = {
+            "path": path,
+            "sha256": item.get("sha256") if isinstance(item.get("sha256"), str) else "",
+            "size": as_int(item.get("size")),
+            "mtime": as_int(item.get("mtime")),
+            "title": item.get("title") if isinstance(item.get("title"), str) else None,
+            "artist": item.get("artist") if isinstance(item.get("artist"), str) else None,
+            "album": item.get("album") if isinstance(item.get("album"), str) else None,
+            "duration": as_int(item.get("duration")) or None,
+        }
+        entries[path] = entry
+        if entry["sha256"]:
+            hashes.setdefault(entry["sha256"], path)
+    return entries, hashes
+
+
+def persist_music_library(entries):
+    """保存音乐库条目（超出上限时保留最新入库的部分）"""
+    values = list((entries or {}).values())
+    if len(values) > MAX_LIBRARY_ENTRIES:
+        values = values[-MAX_LIBRARY_ENTRIES:]
+    data = load_settings()
+    data["music_library"] = values
     save_settings(data)
 
 

@@ -21,7 +21,7 @@ except ImportError:
 class MediaPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("多媒体播放器")
+        self.setWindowTitle("RuiPlayer - 多媒体播放器")
         self.resize(1024, 600)
         self.showMaximized()
 
