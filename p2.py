@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QFileDialog,
+    QFormLayout,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -35,7 +36,9 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSlider,
     QSplitter,
     QTabWidget,
@@ -48,8 +51,17 @@ from music_scanner import (
     MusicScanWorker,
     format_duration,
     format_size,
+    read_track_meta,
     track_display_text,
     track_tooltip,
+)
+from tag_editor import (
+    CONTAINER_LABELS,
+    FIELD_LABELS,
+    TAG_FIELDS,
+    probe_container,
+    read_tags,
+    save_tags,
 )
 
 try:
@@ -183,7 +195,6 @@ MIN_DURATION_CHOICES = (
     ("15 秒", 15), ("30 秒", 30), ("60 秒", 60),
 )
 DEFAULT_MIN_DURATION = 30
-
 
 # GitHub 网页(blob/raw)链接 → raw 直链，供网络串流输入框使用
 _GITHUB_BLOB_RE = re.compile(
@@ -697,6 +708,11 @@ class MediaPlayer(QMainWindow):
         self.scan_worker = None
         self._scan_stats = None
 
+        # 标签编辑（右侧“标签编辑”标签页）：仅对正在播放的音乐文件生效
+        self.tag_edits = {}            # key -> 输入框
+        self.tag_original = {}         # 上次读取/保存时的值，用于统计改动
+        self.tag_current_path = ""     # 当前可编辑的文件路径
+
         # 全屏播放状态（视频画面 / 音频封面铺满屏幕，ESC 退出）
         self.is_fullscreen = False
         self.fullscreen_window = None
@@ -745,6 +761,8 @@ class MediaPlayer(QMainWindow):
             self.timer.stop()
             if not self.stream_timer.isActive():
                 self.stream_timer.start()
+            # 网络串流无法编辑标签，切过去时同步置为不可编辑
+            self.refresh_tag_editor("")
         else:
             self.stream_timer.stop()
             if not self.timer.isActive():
@@ -968,12 +986,10 @@ class MediaPlayer(QMainWindow):
         self.btn_equalizer.clicked.connect(self.open_equalizer_dialog)
         right_layout.addWidget(self.btn_equalizer)
 
-        # 右侧分类标签页：串流/设置（已合并）、音乐库、媒体信息
+        # 右侧分类标签页：串流、音乐库、信息、标签
+        # 外观保持 Qt 原生，不做自定义绘制
         self.right_tabs = QTabWidget()
         self.right_tabs.setDocumentMode(True)
-        # 右侧面板较窄：压缩标签内边距，尽量让三个标签同时可见
-        # （窗口很窄时 Qt 会自动给标签栏加滚动箭头）
-        self.right_tabs.tabBar().setStyleSheet("QTabBar::tab { padding: 4px 8px; }")
 
         # ---- 标签页 1：串流 / 设置 ----
         tab_stream = QWidget()
@@ -1013,7 +1029,10 @@ class MediaPlayer(QMainWindow):
         self.btn_scale.clicked.connect(self.open_scale_dialog)
         ts_layout.addWidget(self.btn_scale)
 
-        self.right_tabs.addTab(tab_stream, "串流/设置")
+        stream_tab_index = self.right_tabs.addTab(tab_stream, "串流")
+        self.right_tabs.setTabToolTip(
+            stream_tab_index, "网络串流 / 设置（含 M3U、Telegram 音乐、缩放）"
+        )
 
         # ---- 标签页 2：音乐库（指定文件夹扫描 + SHA256 去重） ----
         tab_library = QWidget()
@@ -1108,7 +1127,10 @@ class MediaPlayer(QMainWindow):
         self.btn_library_clear.clicked.connect(self.clear_music_library)
         self.btn_library_dups.clicked.connect(self.show_skipped_records)
 
-        self.right_tabs.addTab(tab_library, "音乐库")
+        library_tab_index = self.right_tabs.addTab(tab_library, "音乐库")
+        self.right_tabs.setTabToolTip(
+            library_tab_index, "音乐库：文件夹扫描、SHA256 去重、搜索与播放"
+        )
 
         # ---- 标签页 3：媒体信息 ----
         self.tab_info = QWidget()
@@ -1116,7 +1138,14 @@ class MediaPlayer(QMainWindow):
         ti_layout.setContentsMargins(0, 6, 0, 0)
         self.info_panel = QListWidget()
         ti_layout.addWidget(self.info_panel)
-        self.right_tabs.addTab(self.tab_info, "媒体信息")
+        info_tab_index = self.right_tabs.addTab(self.tab_info, "信息")
+        self.right_tabs.setTabToolTip(info_tab_index, "媒体信息：当前播放内容的详细参数")
+
+        # ---- 标签页 4：标签编辑（仅正在播放的音乐文件） ----
+        tag_tab_index = self.right_tabs.addTab(self.build_tag_editor_tab(), "标签")
+        self.right_tabs.setTabToolTip(
+            tag_tab_index, "标签编辑：修改正在播放音乐的元数据并写回文件"
+        )
 
         right_layout.addWidget(self.right_tabs, stretch=1)
 
@@ -1179,7 +1208,8 @@ class MediaPlayer(QMainWindow):
         # 左右比例：封面控制区 75% : 媒体信息区 25%（介于 7:3 ~ 8:2）
         self._apply_splitter_ratio()
 
-        # 字号自适应（1920x1080 基准 13px，叠加屏幕缩放与用户缩放）
+        # 字号自适应（1920x1080 基准 13px，叠加屏幕缩放与用户缩放）；
+        # 控件外观保持 Qt 原生，这里只调整字号
         font_size = max(10, min(28, round(13 * screen_scale * ui_scale)))
         if w * ui_scale < 1280:
             # 窄屏下压缩按钮内边距，避免左侧按钮行把比例撑出 8:2
@@ -1356,6 +1386,7 @@ class MediaPlayer(QMainWindow):
         self.lrc_list.clear()
         self.lrc_list.hide()
         self.info_panel.clear()
+        self.refresh_tag_editor("")
 
     def toggle_loop(self):
         self.loop_single = not self.loop_single
@@ -2067,6 +2098,7 @@ class MediaPlayer(QMainWindow):
 
         if not self.is_video:
             self.try_load_lyrics_for(path)
+        self.refresh_tag_editor(path)
 
     def play_pause(self):
         if self.media_player.is_playing():
@@ -2159,6 +2191,7 @@ class MediaPlayer(QMainWindow):
         self.show_media_info(path)
         if not self.is_video:
             self.try_load_lyrics_for(path)
+        self.refresh_tag_editor(path)
 
     # ---------------- 音乐库：文件夹扫描 + SHA256 去重 ----------------
 
@@ -2509,6 +2542,211 @@ class MediaPlayer(QMainWindow):
             self.reveal_music_file()
         elif chosen == act_remove:
             self.remove_selected_music()
+
+    # ---------------- 标签编辑：仅对正在播放的音乐 ----------------
+
+    def build_tag_editor_tab(self):
+        """构建“标签编辑”标签页：字段定义来自 tag_editor.TAG_FIELDS"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setSpacing(8)
+        layout.setContentsMargins(0, 6, 0, 0)
+
+        self.tag_file_label = QLabel("未播放音乐")
+        self.tag_file_label.setWordWrap(True)
+        layout.addWidget(self.tag_file_label)
+
+        button_row = QHBoxLayout()
+        button_row.setSpacing(6)
+        self.btn_tag_reload = QPushButton("重新读取")
+        self.btn_tag_reload.setToolTip("丢弃未保存的改动，从文件重新读取标签")
+        self.btn_tag_save = QPushButton("保存标签")
+        self.btn_tag_save.setToolTip("把当前内容直接写入音频文件（覆盖原标签，不可撤销）")
+        button_row.addWidget(self.btn_tag_reload)
+        button_row.addWidget(self.btn_tag_save)
+        button_row.addStretch()
+        layout.addLayout(button_row)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        inner = QWidget()
+        form = QFormLayout(inner)
+        form.setSpacing(6)
+        form.setContentsMargins(2, 2, 2, 2)
+        form.setLabelAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+
+        self.tag_edits = {}
+        for field in TAG_FIELDS:
+            if field.multiline:
+                editor = QPlainTextEdit()
+                editor.setFixedHeight(96)
+            else:
+                editor = QLineEdit()
+            # 左侧已有字段名，输入框内不再重复显示占位文字，避免视觉噪音
+            editor.setToolTip(f"{field.label}（留空表示删除该标签项）")
+            self.tag_edits[field.key] = editor
+            form.addRow(field.label, editor)
+        scroll.setWidget(inner)
+        layout.addWidget(scroll, stretch=1)
+
+        self.tag_status = QLabel("标签编辑仅对本地音乐文件可用")
+        self.tag_status.setWordWrap(True)
+        layout.addWidget(self.tag_status)
+
+        self.btn_tag_reload.clicked.connect(self.reload_tag_editor)
+        self.btn_tag_save.clicked.connect(self.save_tag_editor)
+        self.set_tag_editors_enabled(False)
+        return tab
+
+    def set_tag_editors_enabled(self, enabled):
+        """统一切换标签编辑区可用状态"""
+        for editor in self.tag_edits.values():
+            editor.setEnabled(enabled)
+        self.btn_tag_save.setEnabled(enabled)
+        self.btn_tag_reload.setEnabled(enabled)
+
+    @staticmethod
+    def get_tag_edit_text(editor):
+        if isinstance(editor, QPlainTextEdit):
+            return editor.toPlainText()
+        return editor.text()
+
+    @staticmethod
+    def put_tag_edit_text(editor, text):
+        if isinstance(editor, QPlainTextEdit):
+            editor.setPlainText(text)
+        else:
+            editor.setText(text)
+
+    def current_tag_values(self):
+        """读取编辑区当前内容，返回 {key: 文本}"""
+        return {key: self.get_tag_edit_text(editor)
+                for key, editor in self.tag_edits.items()}
+
+    def apply_tag_values(self, values):
+        """把 {key: 文本} 填进编辑区"""
+        for key, editor in self.tag_edits.items():
+            editor.blockSignals(True)
+            self.put_tag_edit_text(editor, values.get(key, ""))
+            editor.blockSignals(False)
+
+    def has_unsaved_tag_changes(self):
+        """编辑区是否有未保存的改动"""
+        if not self.tag_current_path or not self.tag_original:
+            return False
+        return self.current_tag_values() != self.tag_original
+
+    def refresh_tag_editor(self, path=None):
+        """按当前播放的文件刷新标签编辑区；非音乐/串流时置为不可编辑"""
+        if not getattr(self, "tag_edits", None):
+            return
+        if path is None:
+            path = self.cur_media_path
+        path = path or ""
+
+        # 切换到另一个文件时，未保存的改动会被丢弃
+        dropped = ""
+        if (self.tag_current_path and path
+                and os.path.abspath(path) != os.path.abspath(self.tag_current_path)
+                and self.has_unsaved_tag_changes()):
+            dropped = "（已丢弃上一个文件未保存的改动）"
+
+        note = None
+        kind = "unknown"
+        if not path:
+            note = "标签编辑仅对本地音乐文件可用（当前未播放音乐）"
+        elif self.is_streaming or path.startswith(
+            ("http://", "https://", "rtsp://", "rtmp://", "udp://", "tcp://")
+        ):
+            note = "网络串流不支持编辑标签"
+        elif self.is_video or path.lower().endswith(LOCAL_VIDEO_EXTS):
+            note = "视频文件不支持编辑标签"
+        elif not os.path.isfile(path):
+            note = "文件不存在或已被移动"
+        else:
+            kind = probe_container(path)
+            if kind == "unknown":
+                note = f"该格式（{os.path.splitext(path)[1] or '未知'}）暂不支持写入标签"
+
+        if note is not None:
+            self.tag_current_path = ""
+            self.tag_original = {}
+            self.apply_tag_values({})
+            self.set_tag_editors_enabled(False)
+            self.tag_file_label.setText(
+                "未播放音乐" if not path else os.path.basename(path)
+            )
+            self.tag_file_label.setToolTip(path)
+            self.tag_status.setText(note + dropped)
+            return
+
+        values = read_tags(path)
+        self.apply_tag_values(values)
+        self.tag_original = dict(values)
+        self.tag_current_path = path
+        self.set_tag_editors_enabled(True)
+        self.tag_file_label.setText(os.path.basename(path))
+        self.tag_file_label.setToolTip(path)
+        self.tag_status.setText(
+            f"标签格式：{CONTAINER_LABELS.get(kind, kind)}"
+            "（修改后点“保存标签”写入文件）" + dropped
+        )
+
+    def reload_tag_editor(self):
+        """从文件重新读取标签（丢弃未保存的改动）"""
+        path = self.tag_current_path or self.cur_media_path
+        if not path or not os.path.isfile(path):
+            QMessageBox.information(self, "提示", "当前没有可读取标签的音乐文件。")
+            return
+        self.refresh_tag_editor(path)
+
+    def save_tag_editor(self):
+        """把编辑区内容写入音频文件，并同步刷新列表与媒体信息"""
+        path = self.tag_current_path
+        if not path or not os.path.isfile(path):
+            QMessageBox.information(self, "提示", "当前没有可编辑标签的音乐文件。")
+            return
+
+        values = self.current_tag_values()
+        changed = [
+            FIELD_LABELS.get(key, key)
+            for key, text in values.items()
+            if text.strip() != (self.tag_original.get(key) or "").strip()
+        ]
+        if not changed:
+            self.tag_status.setText("没有改动需要保存")
+            return
+
+        ok, message = save_tags(path, values)
+        if not ok:
+            self.tag_status.setText(message)
+            QMessageBox.warning(self, "保存失败", message)
+            return
+
+        self.tag_original = dict(values)
+        summary = "、".join(changed[:4])
+        if len(changed) > 4:
+            summary += f" 等 {len(changed)} 项"
+        self.tag_status.setText(f"已更新：{summary}")
+
+        # 标题/艺术家等变化后，同步音乐库列表与媒体信息面板
+        self.refresh_library_entry_for(path)
+        if not self.is_video:
+            self.read_audio_metadata(path)
+            self.show_media_info(path)
+
+    def refresh_library_entry_for(self, path):
+        """标签改动后刷新音乐库中该文件的显示文本"""
+        entry = self.library_entries.get(path)
+        if entry is None:
+            return
+        for key, value in read_track_meta(path).items():
+            if value is not None:
+                entry[key] = value
+        self.add_music_item(entry)
 
     def closeEvent(self, event):
         """退出前停止后台扫描线程，避免线程仍在读文件时被销毁"""
