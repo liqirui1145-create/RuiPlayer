@@ -20,3 +20,4 @@ music/
 build/
 dist/
 *.egg-info/
+ui_settings.json
