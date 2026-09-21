@@ -52,6 +52,7 @@ from PyQt6.QtWidgets import (
 )
 from PIL import Image
 
+import app_paths
 import mpris_player
 from metadata_reader import MetadataReader
 from music_scanner import (
